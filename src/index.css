@@ -1,0 +1,284 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS variables for dynamic theming */
+:root {
+  /* Default to Impact track colors */
+  --track-primary-50: #ecfdf5;
+  --track-primary-100: #d1fae5;
+  --track-primary-200: #a7f3d0;
+  --track-primary-300: #6ee7b7;
+  --track-primary-400: #34d399;
+  --track-primary-500: #10b981;
+  --track-primary-600: #059669;
+  --track-primary-700: #047857;
+  --track-primary-800: #065f46;
+  --track-primary-900: #064e3b;
+  
+  /* Semantic color mappings */
+  --track-primary: var(--track-primary-600);
+  --track-primary-light: var(--track-primary-100);
+  --track-primary-dark: var(--track-primary-700);
+  --track-accent: var(--track-primary-500);
+  --track-text: var(--track-primary-800);
+  --track-text-light: var(--track-primary-600);
+  --track-bg: var(--track-primary-50);
+  --track-bg-hover: var(--track-primary-100);
+  --track-border: var(--track-primary-200);
+}
+
+/* Grow track color overrides */
+[data-track="grow"] {
+  --track-primary-50: #fffbeb;
+  --track-primary-100: #fef3c7;
+  --track-primary-200: #fde68a;
+  --track-primary-300: #fcd34d;
+  --track-primary-400: #fbbf24;
+  --track-primary-500: #f59e0b;
+  --track-primary-600: #d97706;
+  --track-primary-700: #b45309;
+  --track-primary-800: #92400e;
+  --track-primary-900: #78350f;
+}
+
+/* Base styles */
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Utility classes for track-based theming */
+@layer utilities {
+  .track-bg {
+    background-color: var(--track-bg);
+  }
+  
+  .track-bg-hover:hover {
+    background-color: var(--track-bg-hover);
+  }
+  
+  .track-primary {
+    color: var(--track-primary);
+  }
+  
+  .track-primary-bg {
+    background-color: var(--track-primary);
+  }
+  
+  .track-text {
+    color: var(--track-text);
+  }
+  
+  .track-text-light {
+    color: var(--track-text-light);
+  }
+  
+  .track-border {
+    border-color: var(--track-border);
+  }
+  
+  .track-accent {
+    color: var(--track-accent);
+  }
+  
+  .track-accent-bg {
+    background-color: var(--track-accent);
+  }
+}
+
+/* Component-specific theming */
+.track-button {
+  @apply track-primary-bg text-white hover:opacity-90 transition-all duration-200;
+}
+
+.track-button-active {
+  @apply track-primary-bg;
+}
+
+.track-card {
+  @apply track-bg track-border border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200;
+}
+
+.track-badge {
+  @apply track-accent-bg text-white text-xs px-2 py-1 rounded-full font-medium;
+}
+
+.track-focus-ring {
+  --tw-ring-color: var(--track-primary);
+}
+
+.track-checkbox {
+  --tw-ring-color: var(--track-primary);
+  accent-color: var(--track-primary);
+}
+
+/* Line clamp utilities for text truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Mobile-first responsive design utilities */
+@layer utilities {
+  /* Touch-friendly button sizes */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobile-optimized spacing */
+  .mobile-padding {
+    @apply px-4 py-3;
+  }
+  
+  .mobile-margin {
+    @apply mx-4 my-3;
+  }
+  
+  /* Responsive text sizes */
+  .text-responsive-xs {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl;
+  }
+  
+  /* Mobile-first grid layouts */
+  .responsive-grid-1 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
+  }
+  
+  .responsive-grid-2 {
+    @apply grid grid-cols-1 md:grid-cols-2;
+  }
+  
+  .responsive-grid-3 {
+    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3;
+  }
+  
+  .responsive-grid-4 {
+    @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4;
+  }
+  
+  /* Mobile navigation spacing */
+  .mobile-nav-spacing {
+    @apply pb-20 lg:pb-0;
+  }
+  
+  /* Responsive flex layouts */
+  .responsive-flex-col {
+    @apply flex flex-col sm:flex-row;
+  }
+  
+  .responsive-flex-row {
+    @apply flex flex-row;
+  }
+  
+  /* Mobile-optimized modal sizing */
+  .mobile-modal {
+    @apply w-full max-w-sm sm:max-w-md md:max-w-lg;
+  }
+  
+  /* Touch-optimized input fields */
+  .touch-input {
+    @apply px-4 py-3 text-base;
+  }
+  
+  /* Responsive card padding */
+  .responsive-card-padding {
+    @apply p-4 sm:p-6;
+  }
+  
+  /* Mobile-first button sizing */
+  .mobile-button {
+    @apply px-4 py-3 text-sm font-medium;
+  }
+  
+  .mobile-button-lg {
+    @apply px-6 py-4 text-base font-medium;
+  }
+  
+  /* Desktop-optimized utilities */
+  .desktop-hover-lift {
+    @apply hover:shadow-lg hover:-translate-y-1 transition-all duration-200;
+  }
+  
+  .desktop-hover-scale {
+    @apply hover:scale-105 transition-transform duration-200;
+  }
+  
+  .desktop-hover-glow {
+    @apply hover:shadow-xl hover:shadow-blue-500/25 transition-shadow duration-300;
+  }
+  
+  .desktop-focus-ring {
+    @apply focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:outline-none;
+  }
+  
+  .desktop-button {
+    @apply px-6 py-3 text-sm font-medium hover:shadow-md transition-all duration-200;
+  }
+  
+  .desktop-button-lg {
+    @apply px-8 py-4 text-base font-medium hover:shadow-lg transition-all duration-200;
+  }
+  
+  /* Desktop grid layouts */
+  .desktop-grid-dense {
+    @apply lg:grid-cols-4 xl:grid-cols-5;
+  }
+  
+  .desktop-sidebar-width {
+    @apply lg:w-64 xl:w-72;
+  }
+  
+  /* Desktop spacing optimizations */
+  .desktop-padding {
+    @apply lg:px-8 xl:px-12;
+  }
+  
+  .desktop-margin {
+    @apply lg:mx-8 xl:mx-12;
+  }
+  
+  /* Desktop typography */
+  .desktop-text-lg {
+    @apply lg:text-xl xl:text-2xl;
+  }
+  
+  .desktop-text-xl {
+    @apply lg:text-2xl xl:text-3xl;
+  }
+}
