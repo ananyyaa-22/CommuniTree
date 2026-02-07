@@ -7,10 +7,12 @@ import React, { useState } from 'react';
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useUser } from '../../hooks/useUser';
 import { User } from '../../types';
+import { UserType } from './UserTypeSelection';
 
 interface LoginFormProps {
   onLoginComplete: (user: User) => void;
   onSwitchToRegister: () => void;
+  userType: UserType | null;
 }
 
 interface FormData {
@@ -55,6 +57,7 @@ const MOCK_USERS: Array<User & { password: string }> = [
 export const LoginForm: React.FC<LoginFormProps> = ({
   onLoginComplete,
   onSwitchToRegister,
+  userType,
 }) => {
   const { setUser } = useUser();
   const [formData, setFormData] = useState<FormData>({
@@ -64,6 +67,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const userTypeLabel = userType === 'ngo' ? 'NGO' : 'Volunteer';
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -140,6 +145,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   return (
     <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
       <div className="text-center mb-6">
+        {userType && (
+          <div className="inline-block px-4 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium mb-3">
+            {userTypeLabel}
+          </div>
+        )}
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
         <p className="text-gray-600">Sign in to your CommuniTree account</p>
       </div>
