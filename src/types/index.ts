@@ -69,7 +69,8 @@ export * from './Venue';
 export * from './ChatThread';
 
 // Application State Management
-export { AppState } from './AppState';
+export type { AppState, TrackType, ViewMode, ModalType, Notification, NotificationType } from './AppState';
+export type { Notification as AppNotification, NotificationType as AppNotificationType, ModalType as AppModalType } from './AppState';
 export * from './AppActions';
 
 
@@ -78,20 +79,3 @@ export * from './enums';
 
 // Utility Types
 export * from './utils';
-
-// ===== Temporary UI Types (Hackathon Fix) =====
-export type ViewMode = 'grid' | 'list';
-
-export type ModalType =
-  | 'login'
-  | 'signup'
-  | 'chat'
-  | 'event'
-  | 'ngo'
-  | null;
-
-export interface Notification {
-  id: string;
-  message: string;
-  type?: 'success' | 'error' | 'info';
-}

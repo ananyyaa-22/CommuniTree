@@ -7,12 +7,10 @@
  */
 
 import React, { useState } from 'react';
-import { User, Upload, Mail, AlertCircle, CheckCircle, Building2 } from 'lucide-react';
-import { useUser } from '../../hooks/useUser';
-import { validateDocumentFile, processDocumentUpload } from '../../utils/verification';
+import { User, Mail, AlertCircle, Building2, Lock, Eye, EyeOff } from 'lucide-react';
+import { authService } from '../../services/auth.service';
 import { User as UserType } from '../../types';
 import { UserType as AccountType } from './UserTypeSelection';
-import { Lock, Eye, EyeOff } from 'lucide-react';
 
 
 interface RegistrationFormProps {
@@ -24,17 +22,19 @@ interface RegistrationFormProps {
 interface FormData {
   displayName: string;
   email: string;
+  password: string;
+  confirmPassword: string;
   organizationName?: string;
   darpanId?: string;
-  identityDocument: File | null;
 }
 
 interface FormErrors {
   displayName?: string;
   email?: string;
+  password?: string;
+  confirmPassword?: string;
   organizationName?: string;
   darpanId?: string;
-  identityDocument?: string;
   general?: string;
 }
 
@@ -43,13 +43,14 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   onSwitchToLogin,
   userType,
 }) => {
-  const { signUp, loading, error: authError } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     displayName: '',
     email: '',
+    password: '',
+    confirmPassword: '',
     organizationName: '',
     darpanId: '',
-    identityDocument: null,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -62,10 +63,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     const newErrors: FormErrors = {};
 
     // Name validation
-    if (!formData.name.trim()) {
-      newErrors.name = isNGO ? 'Contact person name is required' : 'Name is required';
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters';
+    if (!formData.displayName.trim()) {
+      newErrors.displayName = isNGO ? 'Contact person name is required' : 'Name is required';
+    } else if (formData.displayName.trim().length < 2) {
+      newErrors.displayName = 'Name must be at least 2 characters';
     }
 
     // Email validation
@@ -78,6 +79,20 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       }
     }
 
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
     // NGO-specific validations
     if (isNGO) {
       if (!formData.organizationName?.trim()) {
@@ -88,18 +103,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
         newErrors.darpanId = 'Darpan ID is required';
       } else if (!/^\d{5}$/.test(formData.darpanId)) {
         newErrors.darpanId = 'Darpan ID must be exactly 5 digits';
-      }
-    }
-
-    // Identity document validation
-    if (!formData.identityDocument) {
-      newErrors.identityDocument = 'Identity verification document is required';
-    } else {
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-      if (!allowedTypes.includes(formData.identityDocument.type)) {
-        newErrors.identityDocument = 'Please upload a valid image (JPG, PNG) or PDF file';
-      } else if (formData.identityDocument.size > 5 * 1024 * 1024) { // 5MB limit
-        newErrors.identityDocument = 'File size must be less than 5MB';
       }
     }
 
@@ -123,17 +126,18 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     }
 
     setErrors({});
+    setLoading(true);
 
     try {
-      // Sign up using Supabase authentication
-      await signUp(formData.email, formData.password, formData.displayName);
+      const user = await authService.signUp(formData.email, formData.password, formData.displayName);
       
-      // If onRegistrationComplete callback is provided, it will be called
-      // The user will be available from the useAuth hook after successful signup
+      if (onRegistrationComplete) {
+        onRegistrationComplete(user as any);
+      }
     } catch (err) {
-      // Error is already handled by useAuth hook
-      // Display it in the form
       setErrors({ general: err instanceof Error ? err.message : 'Registration failed. Please try again.' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -171,7 +175,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                   errors.organizationName ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter your organization name"
-                disabled={isSubmitting}
+                disabled={loading}
               />
             </div>
             {errors.organizationName && (
@@ -199,7 +203,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 errors.displayName ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder={isNGO ? 'Enter contact person name' : 'Enter your full name'}
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
           {errors.displayName && (
@@ -253,7 +257,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               }`}
               placeholder="Enter 5-digit Darpan ID"
               maxLength={5}
-              disabled={isSubmitting}
+              disabled={loading}
             />
             {errors.darpanId && (
               <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -338,11 +342,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
         </div>
 
         {/* General Error */}
-        {(errors.general || authError) && (
+        {errors.general && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600 flex items-center">
               <AlertCircle className="w-4 h-4 mr-2" />
-              {errors.general || authError?.message}
+              {errors.general}
             </p>
           </div>
         )}

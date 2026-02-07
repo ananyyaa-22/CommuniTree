@@ -2,23 +2,20 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database.types';
 
 // Get environment variables
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://mock.supabase.co';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'mock-key';
 
-// Validate environment variables
-if (!supabaseUrl) {
-  throw new Error(
-    'Missing REACT_APP_SUPABASE_URL environment variable. ' +
-    'Please create a .env file with your Supabase project URL. ' +
-    'See .env.example for reference.'
-  );
-}
+// Check if we're in mock mode (no real Supabase credentials)
+export const isMockMode = !process.env.REACT_APP_SUPABASE_URL || 
+                          process.env.REACT_APP_SUPABASE_URL.includes('mock');
 
-if (!supabaseAnonKey) {
-  throw new Error(
-    'Missing REACT_APP_SUPABASE_ANON_KEY environment variable. ' +
-    'Please create a .env file with your Supabase anonymous key. ' +
-    'See .env.example for reference.'
+if (isMockMode) {
+  console.warn(
+    '⚠️ Running in MOCK MODE - Supabase is not configured.\n' +
+    'Authentication will use mock data. To use real Supabase:\n' +
+    '1. Create a project at https://app.supabase.com\n' +
+    '2. Copy .env.example to .env\n' +
+    '3. Add your real REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY'
   );
 }
 

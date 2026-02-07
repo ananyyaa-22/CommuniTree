@@ -50,7 +50,11 @@ export type ModalType =
   | 'chat'
   | 'rsvp'
   | 'profile'
-  | 'trust-warning';
+  | 'trust-warning'
+  | 'login'
+  | 'signup'
+  | 'event'
+  | 'ngo';
 
 export type ThemeType = 'impact' | 'grow';
 
@@ -62,4 +66,7 @@ export type NotificationType =
   | 'chat-message'
   | 'chat'
   | 'verification'
-  | 'system';
+  | 'system'
+  | 'success'
+  | 'error'
+  | 'info';

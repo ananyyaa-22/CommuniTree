@@ -5,7 +5,7 @@
 
 import { useCallback } from 'react';
 import { useAppState, useAppDispatch } from './useAppState';
-import { ModalType, ViewMode, Notification } from '../types';
+import { ModalType, ViewMode, Notification } from '../types/AppState';
 
 export const useUI = () => {
   const state = useAppState();

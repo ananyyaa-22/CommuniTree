@@ -10,10 +10,14 @@
  * @see src/types/models.ts for User type
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase, isMockMode } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { AuthError } from '../utils/errors';
 import type { User } from '../types/models';
+
+// Mock user storage for development
+let mockCurrentUser: User | null = null;
+const mockAuthListeners: Array<(user: User | null) => void> = [];
 
 /**
  * Authentication service interface
@@ -65,6 +69,31 @@ export async function signUp(
   password: string,
   displayName: string
 ): Promise<User> {
+  // Mock mode - simulate sign up
+  if (isMockMode) {
+    console.log('[auth] Mock sign up:', email);
+    
+    // Validate password length
+    if (password.length < 8) {
+      throw new AuthError('Password must be at least 8 characters long', 'weak_password');
+    }
+
+    const mockUser: User = {
+      id: `mock-${Date.now()}`,
+      email,
+      displayName,
+      trustPoints: 50,
+      verificationStatus: 'unverified',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    mockCurrentUser = mockUser;
+    mockAuthListeners.forEach(listener => listener(mockUser));
+    
+    return mockUser;
+  }
+
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -119,6 +148,27 @@ export async function signUp(
  * @throws AuthError with code 'network_error' for other failures
  */
 export async function signIn(email: string, password: string): Promise<User> {
+  // Mock mode - simulate sign in
+  if (isMockMode) {
+    console.log('[auth] Mock sign in:', email);
+    
+    // Accept any credentials in mock mode
+    const mockUser: User = {
+      id: `mock-${Date.now()}`,
+      email,
+      displayName: email.split('@')[0],
+      trustPoints: 75,
+      verificationStatus: 'verified',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    mockCurrentUser = mockUser;
+    mockAuthListeners.forEach(listener => listener(mockUser));
+    
+    return mockUser;
+  }
+
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -165,6 +215,14 @@ export async function signIn(email: string, password: string): Promise<User> {
  * @throws AuthError with code 'network_error' on failure
  */
 export async function signOut(): Promise<void> {
+  // Mock mode - simulate sign out
+  if (isMockMode) {
+    console.log('[auth] Mock sign out');
+    mockCurrentUser = null;
+    mockAuthListeners.forEach(listener => listener(null));
+    return;
+  }
+
   try {
     const { error } = await supabase.auth.signOut();
 
@@ -188,6 +246,12 @@ export async function signOut(): Promise<void> {
  * @throws AuthError with code 'network_error' on failure
  */
 export async function resetPassword(email: string): Promise<void> {
+  // Mock mode - simulate password reset
+  if (isMockMode) {
+    console.log('[auth] Mock password reset for:', email);
+    return;
+  }
+
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -212,6 +276,11 @@ export async function resetPassword(email: string): Promise<void> {
  * @throws AuthError with code 'network_error' on failure
  */
 export async function getCurrentUser(): Promise<User | null> {
+  // Mock mode - return mock user
+  if (isMockMode) {
+    return mockCurrentUser;
+  }
+
   try {
     const { data, error } = await supabase.auth.getUser();
 
@@ -237,6 +306,19 @@ export async function getCurrentUser(): Promise<User | null> {
  * @returns Unsubscribe function to clean up the subscription
  */
 export function onAuthStateChange(callback: (user: User | null) => void): () => void {
+  // Mock mode - use mock listeners
+  if (isMockMode) {
+    mockAuthListeners.push(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      const index = mockAuthListeners.indexOf(callback);
+      if (index > -1) {
+        mockAuthListeners.splice(index, 1);
+      }
+    };
+  }
+
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     const user = session?.user ? transformSupabaseUser(session.user) : null;
     callback(user);

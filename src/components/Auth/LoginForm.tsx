@@ -8,13 +8,14 @@
 
 import React, { useState } from 'react';
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
+import { authService } from '../../services/auth.service';
 import { User } from '../../types';
 import { UserType } from './UserTypeSelection';
 
 interface LoginFormProps {
   onLoginComplete?: (user: User) => void;
   onSwitchToRegister: () => void;
+  onForgotPassword?: () => void;
   userType: UserType | null;
 }
 
@@ -32,9 +33,10 @@ interface FormErrors {
 export const LoginForm: React.FC<LoginFormProps> = ({
   onLoginComplete,
   onSwitchToRegister,
+  onForgotPassword,
   userType,
 }) => {
-  const { signIn, loading, error: authError } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
@@ -82,17 +84,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     }
 
     setErrors({});
+    setLoading(true);
 
     try {
-      // Sign in using Supabase authentication
-      await signIn(formData.email, formData.password);
+      const user = await authService.signIn(formData.email, formData.password);
       
-      // If onLoginComplete callback is provided, it will be called
-      // The user will be available from the useAuth hook after successful signin
+      if (onLoginComplete) {
+        onLoginComplete(user as any);
+      }
     } catch (err) {
-      // Error is already handled by useAuth hook
-      // Display it in the form
       setErrors({ general: err instanceof Error ? err.message : 'Login failed. Please try again.' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -184,11 +187,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </div>
 
         {/* General Error */}
-        {(errors.general || authError) && (
+        {errors.general && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600 flex items-center">
               <AlertCircle className="w-4 h-4 mr-2" />
-              {errors.general || authError?.message}
+              {errors.general}
             </p>
           </div>
         )}
