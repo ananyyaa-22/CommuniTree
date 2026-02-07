@@ -4,31 +4,25 @@
  */
 
 import React, { useState } from 'react';
-import { User, Upload, Mail, AlertCircle, CheckCircle, Building2 } from 'lucide-react';
+import { User, Upload, Mail, AlertCircle, CheckCircle } from 'lucide-react';
 import { useUser } from '../../hooks/useUser';
 import { validateDocumentFile, processDocumentUpload } from '../../utils/verification';
 import { User as UserType } from '../../types';
-import { UserType as AccountType } from './UserTypeSelection';
 
 interface RegistrationFormProps {
   onRegistrationComplete: (user: UserType) => void;
   onSwitchToLogin: () => void;
-  userType: AccountType | null;
 }
 
 interface FormData {
   name: string;
   email: string;
-  organizationName?: string;
-  darpanId?: string;
   identityDocument: File | null;
 }
 
 interface FormErrors {
   name?: string;
   email?: string;
-  organizationName?: string;
-  darpanId?: string;
   identityDocument?: string;
   general?: string;
 }
@@ -36,29 +30,23 @@ interface FormErrors {
 export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   onRegistrationComplete,
   onSwitchToLogin,
-  userType,
 }) => {
   const { setUser } = useUser();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
-    organizationName: '',
-    darpanId: '',
     identityDocument: null,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
 
-  const isNGO = userType === 'ngo';
-  const userTypeLabel = isNGO ? 'NGO' : 'Solo User';
-
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
     // Name validation
     if (!formData.name.trim()) {
-      newErrors.name = isNGO ? 'Contact person name is required' : 'Name is required';
+      newErrors.name = 'Name is required';
     } else if (formData.name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters';
     }
@@ -70,19 +58,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         newErrors.email = 'Please enter a valid email address';
-      }
-    }
-
-    // NGO-specific validations
-    if (isNGO) {
-      if (!formData.organizationName?.trim()) {
-        newErrors.organizationName = 'Organization name is required';
-      }
-
-      if (!formData.darpanId?.trim()) {
-        newErrors.darpanId = 'Darpan ID is required';
-      } else if (!/^\d{5}$/.test(formData.darpanId)) {
-        newErrors.darpanId = 'Darpan ID must be exactly 5 digits';
       }
     }
 
@@ -180,53 +155,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   return (
     <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
       <div className="text-center mb-6">
-        <div className={`inline-block px-4 py-1 rounded-full text-sm font-medium mb-3 ${
-          isNGO ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-        }`}>
-          {userTypeLabel}
-        </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Join CommuniTree</h2>
-        <p className="text-gray-600">
-          {isNGO 
-            ? 'Register your organization to connect with volunteers' 
-            : 'Create your account to start connecting with your community'}
-        </p>
+        <p className="text-gray-600">Create your account to start connecting with your community</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* NGO Organization Name */}
-        {isNGO && (
-          <div>
-            <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 mb-1">
-              Organization Name
-            </label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                id="organizationName"
-                value={formData.organizationName}
-                onChange={(e) => handleInputChange('organizationName', e.target.value)}
-                className={`w-full pl-10 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                  errors.organizationName ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Enter your organization name"
-                disabled={isSubmitting}
-              />
-            </div>
-            {errors.organizationName && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                {errors.organizationName}
-              </p>
-            )}
-          </div>
-        )}
-
         {/* Name Field */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            {isNGO ? 'Contact Person Name' : 'Full Name'}
+            Full Name
           </label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -238,7 +175,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               className={`w-full pl-10 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                 errors.name ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder={isNGO ? 'Enter contact person name' : 'Enter your full name'}
+              placeholder="Enter your full name"
               disabled={isSubmitting}
             />
           </div>
@@ -276,36 +213,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             </p>
           )}
         </div>
-
-        {/* NGO Darpan ID */}
-        {isNGO && (
-          <div>
-            <label htmlFor="darpanId" className="block text-sm font-medium text-gray-700 mb-1">
-              Darpan ID
-            </label>
-            <input
-              type="text"
-              id="darpanId"
-              value={formData.darpanId}
-              onChange={(e) => handleInputChange('darpanId', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                errors.darpanId ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Enter 5-digit Darpan ID"
-              maxLength={5}
-              disabled={isSubmitting}
-            />
-            {errors.darpanId && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                {errors.darpanId}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              Your organization's 5-digit Darpan registration number
-            </p>
-          </div>
-        )}
 
         {/* Identity Document Upload */}
         <div>

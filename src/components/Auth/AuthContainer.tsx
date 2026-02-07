@@ -1,53 +1,34 @@
 /**
  * Authentication container component
- * Manages the flow between user type selection, login and registration forms
+ * Manages the flow between login and registration forms
  */
 
 import React, { useState } from 'react';
 import { LoginForm } from './LoginForm';
 import { RegistrationForm } from './RegistrationForm';
-import { UserTypeSelection, UserType } from './UserTypeSelection';
 import { User } from '../../types';
-import { ArrowLeft } from 'lucide-react';
 
 interface AuthContainerProps {
   onAuthComplete: (user: User) => void;
   initialMode?: 'login' | 'register';
 }
 
-type AuthStep = 'userType' | 'login' | 'register';
-
 export const AuthContainer: React.FC<AuthContainerProps> = ({
   onAuthComplete,
   initialMode = 'login',
 }) => {
-  const [step, setStep] = useState<AuthStep>('userType');
-  const [userType, setUserType] = useState<UserType | null>(null);
-
-  const handleUserTypeSelect = (selectedType: UserType) => {
-    setUserType(selectedType);
-    setStep(initialMode);
-  };
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
 
   const handleAuthComplete = (user: User) => {
-    // Add userType to user object if needed for future use
-    const userWithType = {
-      ...user,
-      accountType: userType,
-    };
-    onAuthComplete(userWithType);
+    onAuthComplete(user);
   };
 
-  const switchToLogin = () => setStep('login');
-  const switchToRegister = () => setStep('register');
-  const goBackToUserType = () => {
-    setStep('userType');
-    setUserType(null);
-  };
+  const switchToLogin = () => setMode('login');
+  const switchToRegister = () => setMode('register');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-md">
         {/* Logo/Brand Section */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-600 rounded-full mb-4">
@@ -57,41 +38,18 @@ export const AuthContainer: React.FC<AuthContainerProps> = ({
           <p className="text-gray-600">Connect. Contribute. Grow.</p>
         </div>
 
-        {/* Back Button - Show when not on user type selection */}
-        {step !== 'userType' && (
-          <div className="mb-4">
-            <button
-              onClick={goBackToUserType}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back to user type selection</span>
-            </button>
-          </div>
+        {/* Authentication Forms */}
+        {mode === 'login' ? (
+          <LoginForm
+            onLoginComplete={handleAuthComplete}
+            onSwitchToRegister={switchToRegister}
+          />
+        ) : (
+          <RegistrationForm
+            onRegistrationComplete={handleAuthComplete}
+            onSwitchToLogin={switchToLogin}
+          />
         )}
-
-        {/* Authentication Flow */}
-        <div className="flex justify-center">
-          {step === 'userType' ? (
-            <UserTypeSelection onSelectUserType={handleUserTypeSelect} />
-          ) : (
-            <div className="w-full max-w-md">
-              {step === 'login' ? (
-                <LoginForm
-                  onLoginComplete={handleAuthComplete}
-                  onSwitchToRegister={switchToRegister}
-                  userType={userType}
-                />
-              ) : (
-                <RegistrationForm
-                  onRegistrationComplete={handleAuthComplete}
-                  onSwitchToLogin={switchToLogin}
-                  userType={userType}
-                />
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Footer */}
         <div className="text-center mt-8">
