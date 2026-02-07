@@ -12,6 +12,8 @@ import { useUser } from '../../hooks/useUser';
 import { validateDocumentFile, processDocumentUpload } from '../../utils/verification';
 import { User as UserType } from '../../types';
 import { UserType as AccountType } from './UserTypeSelection';
+import { Lock, Eye, EyeOff } from 'lucide-react';
+
 
 interface RegistrationFormProps {
   onRegistrationComplete?: (user: UserType) => void;
