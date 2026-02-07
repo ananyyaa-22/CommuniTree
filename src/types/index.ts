@@ -39,11 +39,29 @@ export * from './Venue';
 export * from './ChatThread';
 
 // Application State Management
-export * from './AppState';
+export { AppState } from './AppState';
 export * from './AppActions';
+
 
 // Constants and Enums
 export * from './enums';
 
 // Utility Types
 export * from './utils';
+
+// ===== Temporary UI Types (Hackathon Fix) =====
+export type ViewMode = 'grid' | 'list';
+
+export type ModalType =
+  | 'login'
+  | 'signup'
+  | 'chat'
+  | 'event'
+  | 'ngo'
+  | null;
+
+export interface Notification {
+  id: string;
+  message: string;
+  type?: 'success' | 'error' | 'info';
+}
