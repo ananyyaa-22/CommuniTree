@@ -3,6 +3,9 @@
  * CommuniTree Platform Utilities
  */
 
+// Error handling utilities
+export * from './errors';
+
 // Trust Points utilities
 export * from './trustPoints';
 
