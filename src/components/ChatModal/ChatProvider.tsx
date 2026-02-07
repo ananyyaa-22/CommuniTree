@@ -9,12 +9,12 @@ import { ChatContext } from '../../types/ChatThread';
 import { NGO } from '../../types/NGO';
 import { Event } from '../../types/Event';
 import { useUI } from '../../hooks/useUI';
-import { useChat } from '../../hooks/useChat';
 
 interface ChatProviderContextType {
   openChatWithNGO: (ngo: NGO) => void;
   openChatWithEvent: (event: Event) => void;
   closeChatModal: () => void;
+  selectThread: (threadId: string) => void;
   isOpen: boolean;
   currentContext: ChatContext | null;
 }
@@ -28,19 +28,44 @@ interface ChatProviderProps {
 export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const [chatContext, setChatContext] = useState<ChatContext | null>(null);
   const { showModal, hideModal, isModalOpen } = useUI();
-  const { createChatContext } = useChat();
+
+  const createChatContext = (type: 'ngo' | 'event', reference: NGO | Event): ChatContext => {
+    if (type === 'ngo') {
+      const ngo = reference as NGO;
+      return {
+        type: 'ngo',
+        title: ngo.name,
+        description: ngo.description || undefined,
+        reference: ngo,
+      };
+    } else {
+      const event = reference as Event;
+      return {
+        type: 'event',
+        title: event.title,
+        description: event.description || undefined,
+        reference: event,
+      };
+    }
+  };
 
   const openChatWithNGO = useCallback((ngo: NGO) => {
     const context = createChatContext('ngo', ngo);
     setChatContext(context);
     showModal('chat');
-  }, [createChatContext, showModal]);
+  }, [showModal]);
 
   const openChatWithEvent = useCallback((event: Event) => {
     const context = createChatContext('event', event);
     setChatContext(context);
     showModal('chat');
-  }, [createChatContext, showModal]);
+  }, [showModal]);
+
+  const selectThread = useCallback((threadId: string) => {
+    // For now, just open the modal
+    // In a full implementation, you'd fetch the thread data and set context
+    showModal('chat');
+  }, [showModal]);
 
   const closeChatModal = useCallback(() => {
     hideModal();
@@ -51,6 +76,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     openChatWithNGO,
     openChatWithEvent,
     closeChatModal,
+    selectThread,
     isOpen: isModalOpen('chat'),
     currentContext: chatContext,
   };

@@ -9,7 +9,7 @@
  * Requirements: 7.1, 7.2, 7.3
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { useUser } from '../../hooks/useUser';
 import { User } from '../../types';
@@ -33,7 +33,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
   user, 
   className = '' 
 }) => {
-  const { updateProfile } = useUser();
+  const { updateProfile, loading: userLoading, error: userError } = useUser();
   const [formData, setFormData] = useState<FormData>({
     name: user.name,
     email: user.email,
@@ -41,6 +41,15 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Show user-level errors if they exist
+  useEffect(() => {
+    if (userError) {
+      setErrors({ 
+        name: userError.message 
+      });
+    }
+  }, [userError]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -90,7 +99,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
     setIsSubmitting(true);
     
     try {
-      // Use the new updateProfile function from useUser hook
+      // Use the updateProfile function from useUser hook (now integrated with Supabase)
       await updateProfile({
         name: formData.name.trim(),
         email: formData.email.trim(),
@@ -132,6 +141,18 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
           Update your personal information and account details.
         </p>
       </div>
+
+      {/* Loading Indicator */}
+      {userLoading && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-blue-800 font-medium">
+              Updating profile...
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Success Message */}
       {showSuccess && (
@@ -251,7 +272,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
 
           <button
             type="submit"
-            disabled={!hasChanges || isSubmitting}
+            disabled={!hasChanges || isSubmitting || userLoading}
             className="
               flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg 
               hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 
@@ -259,7 +280,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
             "
           >
             <Save className="w-4 h-4" />
-            <span>{isSubmitting ? 'Saving...' : 'Save Changes'}</span>
+            <span>{isSubmitting || userLoading ? 'Saving...' : 'Save Changes'}</span>
           </button>
         </div>
       </form>

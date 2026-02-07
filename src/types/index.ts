@@ -4,7 +4,37 @@
  */
 
 // Database Types (snake_case from Supabase)
-export * from './database.types';
+// Note: We exclude TrackType from database.types to avoid conflict with AppState.TrackType
+export type {
+  DbUser,
+  DbUserInsert,
+  DbUserUpdate,
+  DbNGO,
+  DbNGOInsert,
+  DbNGOUpdate,
+  DbVenue,
+  DbVenueInsert,
+  DbVenueUpdate,
+  DbEvent,
+  DbEventInsert,
+  DbEventUpdate,
+  DbRSVP,
+  DbRSVPInsert,
+  DbRSVPUpdate,
+  DbChatThread,
+  DbChatThreadInsert,
+  DbChatThreadUpdate,
+  DbChatMessage,
+  DbChatMessageInsert,
+  DbChatMessageUpdate,
+  DbTrustPointsHistory,
+  DbTrustPointsHistoryInsert,
+  VerificationStatus,
+  NGOVerificationStatus,
+  SafetyRating,
+  OrganizerType,
+  RSVPStatus,
+} from './database.types';
 
 // Application Models (camelCase for React app) - New Supabase-aligned types
 // Note: These are exported with specific names to avoid conflicts with legacy types

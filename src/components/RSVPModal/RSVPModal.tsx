@@ -17,8 +17,9 @@ import {
   XCircle
 } from 'lucide-react';
 import { Event } from '../../types';
+import { useAppState } from '../../hooks/useAppState';
+import { useRSVP } from '../../hooks/useRSVP';
 import { useTrustPoints } from '../../hooks/useTrustPoints';
-import { useEvents } from '../../hooks/useEvents';
 import { format } from 'date-fns';
 import { clsx } from 'clsx';
 import { 
@@ -38,6 +39,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({
   event,
   onClose,
 }) => {
+  const { user } = useAppState();
+  const { createRSVP, cancelRSVP, isRSVPd } = useRSVP(user?.id || '');
   const { 
     currentPoints, 
     shouldShowWarning, 
@@ -45,26 +48,30 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({
     getPointsAfterAction,
     limits 
   } = useTrustPoints();
-  const { rsvpToEvent, cancelRSVP, hasUserRSVPd } = useEvents();
   const [isConfirming, setIsConfirming] = useState(false);
 
   if (!isOpen || !event) return null;
 
-  const isUserRSVPd = hasUserRSVPd(event.id);
+  const isUserRSVPd = isRSVPd(event.id);
   const spotsRemaining = event.maxAttendees - event.rsvpList.length;
   const isEventFull = spotsRemaining <= 0;
   const isEventPast = event.dateTime < new Date();
   const pointsAfterNoShow = getPointsAfterAction('NO_SHOW');
   const warningMessage = getRSVPWarning();
 
-  const handleConfirmRSVP = () => {
-    if (isUserRSVPd) {
-      cancelRSVP(event.id);
-    } else {
-      rsvpToEvent(event.id);
+  const handleConfirmRSVP = async () => {
+    try {
+      if (isUserRSVPd) {
+        await cancelRSVP(event.id);
+      } else {
+        await createRSVP(event.id);
+      }
+      setIsConfirming(false);
+      onClose();
+    } catch (error) {
+      console.error('Failed to update RSVP:', error);
+      setIsConfirming(false);
     }
-    setIsConfirming(false);
-    onClose();
   };
 
   const handleClose = () => {

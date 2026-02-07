@@ -10,20 +10,61 @@
  * Requirements: 10.3
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Calendar, Clock, MapPin, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useEvents } from '../../hooks/useEvents';
-import { useUser } from '../../hooks/useUser';
-import { EventCard } from '../EventCard';
+import { useAppState } from '../../hooks/useAppState';
+import { useRSVP } from '../../hooks/useRSVP';
 import { Loading } from '../Loading';
 import { formatDistanceToNow, isAfter, isBefore } from 'date-fns';
+import type { Event } from '../../types/Event';
 
 type ScheduleView = 'upcoming' | 'past' | 'organized';
 
+interface EventWithRSVP {
+  event: Event;
+  status: 'confirmed' | 'attended' | 'cancelled' | 'no_show';
+}
+
 export const SchedulePage: React.FC = () => {
-  const { userRSVPEvents, userOrganizedEvents } = useEvents();
-  const { user } = useUser();
+  const { user } = useAppState();
+  const { events: impactEvents, loading: impactLoading } = useEvents('impact');
+  const { events: growEvents, loading: growLoading } = useEvents('grow');
+  const { rsvps, loading: rsvpsLoading, cancelRSVP } = useRSVP(user?.id || '');
   const [activeView, setActiveView] = useState<ScheduleView>('upcoming');
+
+  // Combine all events
+  const allEvents = useMemo(() => [...impactEvents, ...growEvents], [impactEvents, growEvents]);
+
+  // Filter events user has RSVP'd to
+  const userRSVPEvents = useMemo(() => {
+    return allEvents
+      .filter(event => rsvps.some(rsvp => rsvp.eventId === event.id))
+      .map(event => {
+        const rsvp = rsvps.find(r => r.eventId === event.id)!;
+        return {
+          event,
+          status: rsvp.status,
+        };
+      });
+  }, [allEvents, rsvps]);
+
+  // Filter events user is organizing
+  const userOrganizedEvents = useMemo(() => {
+    return allEvents.filter(
+      event => event.organizer.id === user?.id
+    );
+  }, [allEvents, user?.id]);
+
+  const now = new Date();
+  
+  const upcomingEvents = userRSVPEvents.filter(rsvp => 
+    isAfter(new Date(rsvp.event.dateTime), now) && rsvp.status === 'confirmed'
+  );
+  const pastEvents = userRSVPEvents.filter(rsvp => 
+    isBefore(new Date(rsvp.event.dateTime), now)
+  );
+  const organizedEvents = userOrganizedEvents;
 
   if (!user) {
     return (
@@ -39,17 +80,9 @@ export const SchedulePage: React.FC = () => {
     );
   }
 
-  const now = new Date();
-  
-  // Create RSVP objects with status for compatibility
-  const userRSVPs = userRSVPEvents.map(event => ({
-    event,
-    status: event.dateTime > now ? 'confirmed' : 'attended' as const
-  }));
-  
-  const upcomingEvents = userRSVPs.filter(rsvp => isAfter(new Date(rsvp.event.dateTime), now));
-  const pastEvents = userRSVPs.filter(rsvp => isBefore(new Date(rsvp.event.dateTime), now));
-  const organizedEvents = userOrganizedEvents;
+  if (impactLoading || growLoading || rsvpsLoading) {
+    return <Loading />;
+  }
 
   const views = [
     { id: 'upcoming', label: 'Upcoming', count: upcomingEvents.length },
@@ -57,7 +90,15 @@ export const SchedulePage: React.FC = () => {
     { id: 'organized', label: 'Organized', count: organizedEvents.length },
   ] as Array<{ id: ScheduleView; label: string; count: number }>;
 
-  const renderEventList = (events: any[], type: 'rsvp' | 'organized') => {
+  const handleCancelRSVP = async (eventId: string) => {
+    try {
+      await cancelRSVP(eventId);
+    } catch (error) {
+      console.error('Failed to cancel RSVP:', error);
+    }
+  };
+
+  const renderEventList = (events: EventWithRSVP[] | Event[], type: 'rsvp' | 'organized') => {
     if (events.length === 0) {
       return (
         <div className="text-center py-12">
@@ -75,8 +116,8 @@ export const SchedulePage: React.FC = () => {
     return (
       <div className="space-y-4">
         {events.map((item, index) => {
-          const event = type === 'rsvp' ? item.event : item;
-          const rsvpStatus = type === 'rsvp' ? item.status : null;
+          const event = type === 'rsvp' ? (item as EventWithRSVP).event : (item as Event);
+          const rsvpStatus = type === 'rsvp' ? (item as EventWithRSVP).status : null;
           
           return (
             <div key={index} className="bg-white rounded-lg border border-gray-200 p-6">
@@ -135,7 +176,10 @@ export const SchedulePage: React.FC = () => {
               {activeView === 'upcoming' && type === 'rsvp' && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <div className="flex space-x-2">
-                    <button className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+                    <button 
+                      onClick={() => handleCancelRSVP(event.id)}
+                      className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    >
                       Cancel RSVP
                     </button>
                     <button className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
@@ -167,7 +211,7 @@ export const SchedulePage: React.FC = () => {
             <p className="text-sm text-gray-500">Upcoming</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">{pastEvents.filter(e => e.status === 'attended').length}</p>
+            <p className="text-2xl font-bold text-green-600">{pastEvents.filter((e: EventWithRSVP) => e.status === 'attended').length}</p>
             <p className="text-sm text-gray-500">Attended</p>
           </div>
           <div className="text-center">

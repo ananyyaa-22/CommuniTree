@@ -23,7 +23,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
-import { useUser } from '../../hooks/useUser';
+import { useAppState } from '../../hooks/useAppState';
 import { useChat } from '../../hooks/useChat';
 import { 
   getTrustLevel, 
@@ -40,11 +40,28 @@ interface UserProfileProps {
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
-  const { user, isAuthenticated } = useUser();
-  const { userChatHistory, totalUnreadCount } = useChat();
+  const { user } = useAppState();
+  const { threads, loading: chatLoading } = useChat(user?.id || '', undefined);
   const [activeTab, setActiveTab] = useState<'overview' | 'edit' | 'chat' | 'history'>('overview');
 
-  if (!isAuthenticated || !user) {
+  // Show loading state while fetching user data
+  if (!user) {
+    return (
+      <div className={`flex items-center justify-center min-h-96 ${className}`}>
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Please log in
+          </h3>
+          <p className="text-gray-500">
+            Sign in to view your profile.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <div className={`flex items-center justify-center min-h-96 ${className}`}>
         <div className="text-center">
@@ -62,6 +79,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
 
   const trustLevel = getTrustLevel(user.trustPoints);
   const trustLevelColor = getTrustLevelColor(user.trustPoints);
+
+  // Calculate unread count from threads
+  const totalUnreadCount = 0; // Simplified - would need to track read status
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
@@ -159,7 +179,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
         )}
         
         {activeTab === 'chat' && (
-          <ChatHistoryView chatHistory={userChatHistory} />
+          <ChatHistoryView chatHistory={threads} />
         )}
         
         {activeTab === 'history' && (
@@ -172,7 +192,18 @@ export const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
 
 // Profile Overview Component
 const ProfileOverview: React.FC<{ user: import('../../types').User }> = ({ user }) => {
-  const { communityImpactMetrics } = useUser();
+  // Default metrics - would be fetched from database in full implementation
+  const communityImpactMetrics = {
+    eventsOrganized: 0,
+    eventsAttended: 0,
+    communityContributions: 0,
+    volunteerActivities: 0,
+    attendanceRate: 0,
+    impactScore: 0,
+    reliabilityScore: 'Good' as 'Excellent' | 'Good' | 'Poor',
+    totalTrustPointsEarned: 0,
+  };
+  
   const trustLevel = getTrustLevel(user.trustPoints);
   const trustLevelColor = getTrustLevelColor(user.trustPoints);
 

@@ -1,6 +1,9 @@
 /**
  * Registration form component for new user signup
- * Handles user registration with name, email, and identity verification
+ * Handles user registration with email, password, and display name
+ * Integrates with Supabase authentication via useAuth hook
+ * 
+ * Requirements: 3.1, 3.2
  */
 
 import React, { useState } from 'react';
@@ -11,13 +14,13 @@ import { User as UserType } from '../../types';
 import { UserType as AccountType } from './UserTypeSelection';
 
 interface RegistrationFormProps {
-  onRegistrationComplete: (user: UserType) => void;
+  onRegistrationComplete?: (user: UserType) => void;
   onSwitchToLogin: () => void;
   userType: AccountType | null;
 }
 
 interface FormData {
-  name: string;
+  displayName: string;
   email: string;
   organizationName?: string;
   darpanId?: string;
@@ -25,7 +28,7 @@ interface FormData {
 }
 
 interface FormErrors {
-  name?: string;
+  displayName?: string;
   email?: string;
   organizationName?: string;
   darpanId?: string;
@@ -38,17 +41,17 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   onSwitchToLogin,
   userType,
 }) => {
-  const { setUser } = useUser();
+  const { signUp, loading, error: authError } = useAuth();
   const [formData, setFormData] = useState<FormData>({
-    name: '',
+    displayName: '',
     email: '',
     organizationName: '',
     darpanId: '',
     identityDocument: null,
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const isNGO = userType === 'ngo';
   const userTypeLabel = isNGO ? 'NGO' : 'Volunteer';
@@ -110,33 +113,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validate file using verification utilities
-      const validation = validateDocumentFile(file);
-      if (!validation.isValid) {
-        setErrors(prev => ({ ...prev, identityDocument: validation.error }));
-        return;
-      }
-
-      setUploadStatus('uploading');
-      // Simulate file upload process using verification utilities
-      processDocumentUpload(file, 'temp_user_id')
-        .then(() => {
-          setFormData(prev => ({ ...prev, identityDocument: file }));
-          setUploadStatus('success');
-          if (errors.identityDocument) {
-            setErrors(prev => ({ ...prev, identityDocument: undefined }));
-          }
-        })
-        .catch(() => {
-          setUploadStatus('error');
-          setErrors(prev => ({ ...prev, identityDocument: 'Upload failed. Please try again.' }));
-        });
-    }
-  };
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
@@ -144,36 +120,18 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
     setErrors({});
 
     try {
-      // Simulate API call for registration
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Create new user with initial trust points (50)
-      const newUser: UserType = {
-        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        trustPoints: 50, // Initial trust points as per requirement
-        verificationStatus: 'pending', // Will be verified after document processing
-        chatHistory: [],
-        eventHistory: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      // Set user in global state
-      setUser(newUser);
+      // Sign up using Supabase authentication
+      await signUp(formData.email, formData.password, formData.displayName);
       
-      // Call completion callback
-      onRegistrationComplete(newUser);
-
-    } catch (error) {
-      setErrors({ general: 'Registration failed. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
+      // If onRegistrationComplete callback is provided, it will be called
+      // The user will be available from the useAuth hook after successful signup
+    } catch (err) {
+      // Error is already handled by useAuth hook
+      // Display it in the form
+      setErrors({ general: err instanceof Error ? err.message : 'Registration failed. Please try again.' });
     }
   };
 
@@ -232,20 +190,20 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              id="name"
-              value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
+              id="displayName"
+              value={formData.displayName}
+              onChange={(e) => handleInputChange('displayName', e.target.value)}
               className={`w-full pl-10 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+                errors.displayName ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder={isNGO ? 'Enter contact person name' : 'Enter your full name'}
               disabled={isSubmitting}
             />
           </div>
-          {errors.name && (
+          {errors.displayName && (
             <p className="mt-1 text-sm text-red-600 flex items-center">
               <AlertCircle className="w-4 h-4 mr-1" />
-              {errors.name}
+              {errors.displayName}
             </p>
           )}
         </div>
@@ -266,7 +224,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 errors.email ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter your email address"
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
           {errors.email && (
@@ -309,67 +267,80 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
         {/* Identity Document Upload */}
         <div>
-          <label htmlFor="identity-document" className="block text-sm font-medium text-gray-700 mb-1">
-            Identity Verification Document
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            Password
           </label>
           <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
-              type="file"
-              id="identity-document"
-              accept=".jpg,.jpeg,.png,.pdf"
-              onChange={handleFileUpload}
-              className="hidden"
-              disabled={isSubmitting || uploadStatus === 'uploading'}
+              type={showPassword ? 'text' : 'password'}
+              id="password"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              className={`w-full pl-10 pr-10 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                errors.password ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Enter your password (min 8 characters)"
+              disabled={loading}
             />
-            <label
-              htmlFor="identity-document"
-              className={`w-full flex items-center justify-center px-4 py-3 border-2 border-dashed rounded-md cursor-pointer transition-colors ${
-                errors.identityDocument 
-                  ? 'border-red-300 bg-red-50' 
-                  : uploadStatus === 'success'
-                  ? 'border-green-300 bg-green-50'
-                  : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
-              } ${isSubmitting || uploadStatus === 'uploading' ? 'cursor-not-allowed opacity-50' : ''}`}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              disabled={loading}
             >
-              <div className="text-center">
-                {uploadStatus === 'uploading' ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600 mr-2"></div>
-                    <span className="text-sm text-gray-600">Uploading...</span>
-                  </div>
-                ) : uploadStatus === 'success' && formData.identityDocument ? (
-                  <div className="flex items-center">
-                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                    <span className="text-sm text-green-700">{formData.identityDocument.name}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center">
-                    <Upload className="w-5 h-5 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600">
-                      Upload ID, Passport, or Driver's License (JPG, PNG, PDF)
-                    </span>
-                  </div>
-                )}
-              </div>
-            </label>
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
-          {errors.identityDocument && (
+          {errors.password && (
             <p className="mt-1 text-sm text-red-600 flex items-center">
               <AlertCircle className="w-4 h-4 mr-1" />
-              {errors.identityDocument}
+              {errors.password}
             </p>
           )}
-          <p className="mt-1 text-xs text-gray-500">
-            Your document will be securely processed for identity verification. Max file size: 5MB.
-          </p>
+        </div>
+
+        {/* Confirm Password Field */}
+        <div>
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            Confirm Password
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              id="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+              className={`w-full pl-10 pr-10 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Confirm your password"
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              disabled={loading}
+            >
+              {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+          {errors.confirmPassword && (
+            <p className="mt-1 text-sm text-red-600 flex items-center">
+              <AlertCircle className="w-4 h-4 mr-1" />
+              {errors.confirmPassword}
+            </p>
+          )}
         </div>
 
         {/* General Error */}
-        {errors.general && (
+        {(errors.general || authError) && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600 flex items-center">
               <AlertCircle className="w-4 h-4 mr-2" />
-              {errors.general}
+              {errors.general || authError?.message}
             </p>
           </div>
         )}
@@ -377,10 +348,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={isSubmitting || uploadStatus === 'uploading'}
+          disabled={loading}
           className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isSubmitting ? (
+          {loading ? (
             <div className="flex items-center justify-center">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
               Creating Account...
@@ -398,7 +369,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               type="button"
               onClick={onSwitchToLogin}
               className="text-emerald-600 hover:text-emerald-700 font-medium"
-              disabled={isSubmitting}
+              disabled={loading}
             >
               Sign In
             </button>

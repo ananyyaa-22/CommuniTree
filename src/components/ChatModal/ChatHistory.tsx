@@ -5,9 +5,8 @@
 
 import React from 'react';
 import { MessageCircle, Building2, Calendar, Clock } from 'lucide-react';
-import { ChatThread } from '../../types/ChatThread';
-import { NGO } from '../../types/NGO';
-import { Event } from '../../types/Event';
+import { ChatThread } from '../../types/models';
+import { useAppState } from '../../hooks/useAppState';
 import { useChat } from '../../hooks/useChat';
 import { useChatProvider } from './ChatProvider';
 import { clsx } from 'clsx';
@@ -22,26 +21,24 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
   className,
   maxItems = 10,
 }) => {
-  const { userChatHistory, getUnreadMessageCount } = useChat();
-  const { openChatWithNGO, openChatWithEvent } = useChatProvider();
+  const { user } = useAppState();
+  const { selectThread } = useChatProvider();
+  const { threads } = useChat(user?.id || '', undefined);
 
   const handleThreadClick = (thread: ChatThread) => {
-    if (thread.context.type === 'ngo') {
-      openChatWithNGO(thread.context.reference as NGO);
-    } else {
-      openChatWithEvent(thread.context.reference as Event);
-    }
+    // Select the thread to view
+    selectThread(thread.id);
   };
 
-  const getLastMessagePreview = (thread: ChatThread): string => {
-    if (thread.messages.length === 0) {
+  const getLastMessageText = (thread: ChatThread): string => {
+    if (!thread.lastMessage) {
       return 'No messages yet';
     }
     
-    const lastMessage = thread.messages[thread.messages.length - 1];
-    return lastMessage.content.length > 50 
-      ? `${lastMessage.content.substring(0, 50)}...`
-      : lastMessage.content;
+    const content = thread.lastMessage.messageContent;
+    return content.length > 50 
+      ? `${content.substring(0, 50)}...`
+      : content;
   };
 
   const formatLastActivity = (date: Date): string => {
@@ -59,13 +56,7 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
     }
   };
 
-  const getContextIcon = (type: 'ngo' | 'event') => {
-    return type === 'ngo' ? 
-      <Building2 className="w-4 h-4" /> : 
-      <Calendar className="w-4 h-4" />;
-  };
-
-  const displayedThreads = userChatHistory.slice(0, maxItems);
+  const displayedThreads = threads.slice(0, maxItems);
 
   if (displayedThreads.length === 0) {
     return (
@@ -84,60 +75,36 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Conversations</h3>
       
       {displayedThreads.map((thread) => {
-        const unreadCount = getUnreadMessageCount(thread.id);
-        const hasUnread = unreadCount > 0;
+        const ngoName = thread.ngo?.name || 'Unknown NGO';
+        const userName = thread.user?.displayName || 'Unknown User';
         
         return (
           <div
             key={thread.id}
             onClick={() => handleThreadClick(thread)}
-            className={clsx(
-              'p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md hover:border-gray-300',
-              {
-                'bg-blue-50 border-blue-200': hasUnread,
-                'bg-white': !hasUnread,
-              }
-            )}
+            className="p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md hover:border-gray-300 bg-white"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-3 flex-1">
                 {/* Context Icon */}
-                <div className={clsx(
-                  'p-2 rounded-full mt-1',
-                  thread.context.type === 'ngo' 
-                    ? 'bg-emerald-100 text-emerald-600'
-                    : 'bg-amber-100 text-amber-600'
-                )}>
-                  {getContextIcon(thread.context.type)}
+                <div className="p-2 rounded-full mt-1 bg-emerald-100 text-emerald-600">
+                  <Building2 className="w-4 h-4" />
                 </div>
 
                 {/* Chat Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h4 className={clsx(
-                      'font-medium truncate',
-                      hasUnread ? 'text-gray-900' : 'text-gray-700'
-                    )}>
-                      {thread.context.title}
+                    <h4 className="font-medium truncate text-gray-700">
+                      {ngoName}
                     </h4>
-                    {hasUnread && (
-                      <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                        {unreadCount}
-                      </span>
-                    )}
                   </div>
                   
-                  {thread.context.description && (
-                    <p className="text-sm text-gray-500 truncate mb-2">
-                      {thread.context.description}
-                    </p>
-                  )}
+                  <p className="text-sm text-gray-500 truncate mb-2">
+                    Chat with {userName}
+                  </p>
                   
-                  <p className={clsx(
-                    'text-sm truncate',
-                    hasUnread ? 'text-gray-700 font-medium' : 'text-gray-500'
-                  )}>
-                    {getLastMessagePreview(thread)}
+                  <p className="text-sm truncate text-gray-500">
+                    {getLastMessageText(thread)}
                   </p>
                 </div>
               </div>
@@ -145,28 +112,28 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
               {/* Last Activity */}
               <div className="flex items-center space-x-1 text-xs text-gray-400 ml-2">
                 <Clock className="w-3 h-3" />
-                <span>{formatLastActivity(thread.lastActivity)}</span>
+                <span>{formatLastActivity(thread.updatedAt)}</span>
               </div>
             </div>
 
-            {/* Message Count */}
+            {/* Thread Info */}
             <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
               <span className="text-xs text-gray-500">
-                {thread.messages.length} message{thread.messages.length !== 1 ? 's' : ''}
+                Chat thread
               </span>
               
               <span className="text-xs text-gray-400">
-                {thread.context.type === 'ngo' ? 'Volunteer Opportunity' : 'Event Chat'}
+                Volunteer Opportunity
               </span>
             </div>
           </div>
         );
       })}
 
-      {userChatHistory.length > maxItems && (
+      {threads.length > maxItems && (
         <div className="text-center pt-4">
           <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-            View all conversations ({userChatHistory.length})
+            View all conversations ({threads.length})
           </button>
         </div>
       )}

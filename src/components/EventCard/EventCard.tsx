@@ -22,7 +22,8 @@ import {
   getVenueRatingBadge, 
   getVenueRatingDescription 
 } from '../../utils/venueRating';
-import { useEvents } from '../../hooks/useEvents';
+import { useAppState } from '../../hooks/useAppState';
+import { useRSVP } from '../../hooks/useRSVP';
 import { useTrustPoints } from '../../hooks/useTrustPoints';
 import { RSVPModal } from '../RSVPModal';
 import { format } from 'date-fns';
@@ -40,11 +41,12 @@ export const EventCard: React.FC<EventCardProps> = memo(({
   onChat,
   className,
 }) => {
-  const { hasUserRSVPd } = useEvents();
+  const { user } = useAppState();
+  const { isRSVPd } = useRSVP(user?.id || '');
   const { canRSVP } = useTrustPoints();
   const [showRSVPModal, setShowRSVPModal] = useState(false);
 
-  const isUserRSVPd = hasUserRSVPd(event.id);
+  const isUserRSVPd = isRSVPd(event.id);
   const spotsRemaining = event.maxAttendees - event.rsvpList.length;
   const isEventFull = spotsRemaining <= 0;
   const isEventPast = event.dateTime < new Date();

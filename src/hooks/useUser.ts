@@ -1,28 +1,93 @@
 /**
  * Custom hook for user-specific state management
  * Provides user data access and user-related actions
+ * Integrates with Supabase for real-time user data
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useAppState, useAppDispatch } from './useAppState';
 import { User, TrustPointAction, UserEvent } from '../types';
 import { getTrustPointDelta } from '../utils/trustPoints';
+import { userService } from '../services/user.service';
+import { getErrorMessage } from '../utils/errors';
 
 export const useUser = () => {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  // Fetch user data from Supabase when user ID changes
+  useEffect(() => {
+    if (state.user?.id) {
+      const fetchUserData = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          
+          const userData = await userService.getUserById(state.user!.id);
+          
+          if (userData) {
+            // Update local state with fresh data from database
+            dispatch({
+              type: 'UPDATE_USER',
+              payload: {
+                name: userData.displayName,
+                email: userData.email,
+                trustPoints: userData.trustPoints,
+                verificationStatus: userData.verificationStatus === 'verified' ? 'verified' : 'pending',
+                updatedAt: userData.updatedAt,
+              },
+            });
+          }
+        } catch (err) {
+          console.error('Failed to fetch user data:', err);
+          setError(err instanceof Error ? err : new Error('Failed to fetch user data'));
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchUserData();
+    }
+  }, [state.user?.id, dispatch]);
 
   const updateUser = useCallback((updates: Partial<User>) => {
     dispatch({ type: 'UPDATE_USER', payload: updates });
   }, [dispatch]);
 
-  const updateTrustPoints = useCallback((reason: TrustPointAction) => {
-    if (state.user) {
+  const updateTrustPoints = useCallback(async (reason: TrustPointAction) => {
+    if (!state.user) {
+      throw new Error('No user logged in');
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
       const delta = getTrustPointDelta(reason);
+      
+      // Update trust points in database
+      const newTrustPoints = await userService.updateTrustPoints(
+        state.user.id,
+        delta,
+        reason
+      );
+
+      // Update local state
       dispatch({
         type: 'UPDATE_TRUST_POINTS',
         payload: { userId: state.user.id, delta, reason },
       });
+
+      return newTrustPoints;
+    } catch (err) {
+      const errorMessage = getErrorMessage(err as Error);
+      const error = new Error(errorMessage);
+      setError(error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   }, [dispatch, state.user]);
 
@@ -49,7 +114,7 @@ export const useUser = () => {
     }
   }, [dispatch, state.user]);
 
-  // Update profile with validation
+  // Update profile with validation and Supabase integration
   const updateProfile = useCallback(async (profileData: { name: string; email: string }) => {
     if (!state.user) {
       throw new Error('No user logged in');
@@ -69,20 +134,35 @@ export const useUser = () => {
       throw new Error('Invalid email format');
     }
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      setLoading(true);
+      setError(null);
 
-    // Update user profile
-    dispatch({
-      type: 'UPDATE_USER',
-      payload: {
-        name: profileData.name.trim(),
+      // Update user profile in Supabase
+      const updatedUser = await userService.updateUser(state.user.id, {
+        displayName: profileData.name.trim(),
         email: profileData.email.trim(),
-        updatedAt: new Date(),
-      },
-    });
+      });
 
-    return true;
+      // Update local state with response from database
+      dispatch({
+        type: 'UPDATE_USER',
+        payload: {
+          name: updatedUser.displayName,
+          email: updatedUser.email,
+          updatedAt: updatedUser.updatedAt,
+        },
+      });
+
+      return true;
+    } catch (err) {
+      const errorMessage = getErrorMessage(err as Error);
+      const error = new Error(errorMessage);
+      setError(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   }, [dispatch, state.user]);
 
   // Calculate community impact metrics
@@ -148,5 +228,7 @@ export const useUser = () => {
     isAuthenticated: !!state.user,
     trustPoints: state.user?.trustPoints || 0,
     verificationStatus: state.user?.verificationStatus || 'pending',
+    loading,
+    error,
   };
 };

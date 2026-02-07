@@ -1,16 +1,19 @@
 /**
  * Login form component for existing user authentication
  * Handles user login with email and password
+ * Integrates with Supabase authentication via useAuth hook
+ * 
+ * Requirements: 3.1, 3.3
  */
 
 import React, { useState } from 'react';
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { useUser } from '../../hooks/useUser';
+import { useAuth } from '../../hooks/useAuth';
 import { User } from '../../types';
 import { UserType } from './UserTypeSelection';
 
 interface LoginFormProps {
-  onLoginComplete: (user: User) => void;
+  onLoginComplete?: (user: User) => void;
   onSwitchToRegister: () => void;
   userType: UserType | null;
 }
@@ -26,46 +29,17 @@ interface FormErrors {
   general?: string;
 }
 
-// Mock user database for demonstration
-const MOCK_USERS: Array<User & { password: string }> = [
-  {
-    id: 'user_001',
-    name: 'Alex Johnson',
-    email: 'alex.johnson@example.com',
-    password: 'password123',
-    trustPoints: 75,
-    verificationStatus: 'verified',
-    chatHistory: [],
-    eventHistory: [],
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-15'),
-  },
-  {
-    id: 'user_002',
-    name: 'Sarah Chen',
-    email: 'sarah.chen@example.com',
-    password: 'password123',
-    trustPoints: 85,
-    verificationStatus: 'verified',
-    chatHistory: [],
-    eventHistory: [],
-    createdAt: new Date('2024-01-05'),
-    updatedAt: new Date('2024-01-20'),
-  },
-];
-
 export const LoginForm: React.FC<LoginFormProps> = ({
   onLoginComplete,
   onSwitchToRegister,
   userType,
 }) => {
-  const { setUser } = useUser();
+  const { signIn, loading, error: authError } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const userTypeLabel = userType === 'ngo' ? 'NGO' : 'Volunteer';
@@ -107,38 +81,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
     setErrors({});
 
     try {
-      // Simulate API call for authentication
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Find user in mock database
-      const foundUser = MOCK_USERS.find(
-        user => user.email.toLowerCase() === formData.email.toLowerCase() && 
-                user.password === formData.password
-      );
-
-      if (!foundUser) {
-        setErrors({ general: 'Invalid email or password. Please try again.' });
-        return;
-      }
-
-      // Create user object without password
-      const { password, ...userWithoutPassword } = foundUser;
-      const authenticatedUser: User = userWithoutPassword;
-
-      // Set user in global state
-      setUser(authenticatedUser);
+      // Sign in using Supabase authentication
+      await signIn(formData.email, formData.password);
       
-      // Call completion callback
-      onLoginComplete(authenticatedUser);
-
-    } catch (error) {
-      setErrors({ general: 'Login failed. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
+      // If onLoginComplete callback is provided, it will be called
+      // The user will be available from the useAuth hook after successful signin
+    } catch (err) {
+      // Error is already handled by useAuth hook
+      // Display it in the form
+      setErrors({ general: err instanceof Error ? err.message : 'Login failed. Please try again.' });
     }
   };
 
@@ -171,7 +125,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 errors.email ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter your email address"
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
           {errors.email && (
@@ -184,9 +138,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
         {/* Password Field */}
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-            Password
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            {onForgotPassword && (
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="text-sm text-emerald-600 hover:text-emerald-700"
+                disabled={loading}
+              >
+                Forgot password?
+              </button>
+            )}
+          </div>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -198,13 +164,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 errors.password ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter your password"
-              disabled={isSubmitting}
+              disabled={loading}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              disabled={isSubmitting}
+              disabled={loading}
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -218,31 +184,22 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </div>
 
         {/* General Error */}
-        {errors.general && (
+        {(errors.general || authError) && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600 flex items-center">
               <AlertCircle className="w-4 h-4 mr-2" />
-              {errors.general}
+              {errors.general || authError?.message}
             </p>
           </div>
         )}
 
-        {/* Demo Credentials Info */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-700 font-medium mb-1">Demo Credentials:</p>
-          <p className="text-xs text-blue-600">
-            Email: alex.johnson@example.com<br />
-            Password: password123
-          </p>
-        </div>
-
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={loading}
           className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isSubmitting ? (
+          {loading ? (
             <div className="flex items-center justify-center">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
               Signing In...
@@ -260,7 +217,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               type="button"
               onClick={onSwitchToRegister}
               className="text-emerald-600 hover:text-emerald-700 font-medium"
-              disabled={isSubmitting}
+              disabled={loading}
             >
               Create Account
             </button>

@@ -1,7 +1,10 @@
 /**
  * Custom error classes for Supabase integration
  * Provides structured error handling with error codes and optional details
+ * Integrates with centralized logging system
  */
+
+import { logAuthError, logDatabaseError, logValidationError, LogCategory, logError } from './logger';
 
 /**
  * Authentication-related errors
@@ -24,6 +27,9 @@ export class AuthError extends Error {
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, AuthError);
     }
+    
+    // Log authentication errors
+    logAuthError(code, this, undefined, details);
   }
 }
 
@@ -47,6 +53,9 @@ export class DatabaseError extends Error {
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, DatabaseError);
     }
+    
+    // Log database errors
+    logDatabaseError(code, 'database', this, undefined, details);
   }
 }
 
@@ -66,6 +75,9 @@ export class ValidationError extends Error {
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, ValidationError);
     }
+    
+    // Log validation errors
+    logValidationError(field, this, { metadata: { constraint } });
   }
 }
 
@@ -158,14 +170,26 @@ export async function withRetry<T>(
         }
       }
 
-      // Wait before retrying with exponential backoff
+      // Log retry attempt
       if (attempt < maxRetries - 1) {
         const backoffDelay = delayMs * Math.pow(2, attempt);
+        logError(
+          LogCategory.GENERAL,
+          `Retry attempt ${attempt + 1}/${maxRetries} after ${backoffDelay}ms`,
+          lastError,
+          { operation: 'retry', metadata: { attempt: attempt + 1, maxRetries, backoffDelay } }
+        );
         await new Promise((resolve) => setTimeout(resolve, backoffDelay));
       }
     }
   }
 
   // All retries exhausted, throw the last error
+  logError(
+    LogCategory.GENERAL,
+    `All ${maxRetries} retry attempts exhausted`,
+    lastError!,
+    { operation: 'retry', metadata: { maxRetries } }
+  );
   throw lastError!;
 }

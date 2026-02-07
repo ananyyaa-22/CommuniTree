@@ -11,8 +11,8 @@ import { User } from '../../types';
 import { ArrowLeft } from 'lucide-react';
 
 interface AuthContainerProps {
-  onAuthComplete: (user: User) => void;
-  initialMode?: 'login' | 'register';
+  onAuthComplete?: (user: User) => void;
+  initialMode?: 'login' | 'register' | 'reset';
 }
 
 type AuthStep = 'userType' | 'login' | 'register';

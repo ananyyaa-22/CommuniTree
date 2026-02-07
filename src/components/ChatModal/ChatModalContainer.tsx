@@ -9,7 +9,6 @@ import { ChatContext } from '../../types/ChatThread';
 import { NGO } from '../../types/NGO';
 import { Event } from '../../types/Event';
 import { useUI } from '../../hooks/useUI';
-import { useChat } from '../../hooks/useChat';
 
 interface ChatModalContainerProps {
   children?: React.ReactNode;
@@ -18,17 +17,36 @@ interface ChatModalContainerProps {
 export const ChatModalContainer: React.FC<ChatModalContainerProps> = ({ children }) => {
   const [chatContext, setChatContext] = useState<ChatContext | null>(null);
   const { isModalOpen, hideModal } = useUI();
-  const { createChatContext } = useChat();
+
+  const createChatContext = (type: 'ngo' | 'event', reference: NGO | Event): ChatContext => {
+    if (type === 'ngo') {
+      const ngo = reference as NGO;
+      return {
+        type: 'ngo',
+        title: ngo.name,
+        description: ngo.description || undefined,
+        reference: ngo,
+      };
+    } else {
+      const event = reference as Event;
+      return {
+        type: 'event',
+        title: event.title,
+        description: event.description || undefined,
+        reference: event,
+      };
+    }
+  };
 
   const openChatWithNGO = useCallback((ngo: NGO) => {
     const context = createChatContext('ngo', ngo);
     setChatContext(context);
-  }, [createChatContext]);
+  }, []);
 
   const openChatWithEvent = useCallback((event: Event) => {
     const context = createChatContext('event', event);
     setChatContext(context);
-  }, [createChatContext]);
+  }, []);
 
   const closeChatModal = useCallback(() => {
     hideModal();
@@ -63,7 +81,6 @@ export const ChatModalContainer: React.FC<ChatModalContainerProps> = ({ children
 // Hook for accessing chat functions from child components
 export const useChatModal = () => {
   const { showModal } = useUI();
-  const { createChatContext } = useChat();
 
   const openChatWithNGO = useCallback((ngo: NGO) => {
     showModal('chat');

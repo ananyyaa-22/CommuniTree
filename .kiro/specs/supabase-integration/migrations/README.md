@@ -1,102 +1,122 @@
-# Supabase Database Migrations
+# Database Migration Scripts
 
-This directory contains SQL migration files for the CommuniTree Supabase database schema.
+This directory contains SQL scripts for managing the CommuniTree database schema and development data.
 
-## Migration Files
+## Files
 
-The migrations are numbered sequentially and should be executed in order:
+### `seed_dev_data.sql`
+Populates the development database with sample data for testing and development.
 
-1. **001_create_users_table.sql** - Users table with trust points system
-2. **002_create_ngos_table.sql** - NGOs table with Darpan ID validation
-3. **003_create_venues_table.sql** - Venues table with safety ratings
-4. **004_create_events_table.sql** - Events table with track types and foreign keys
-5. **005_create_rsvps_table.sql** - RSVPs table with unique constraints
-6. **006_create_chat_tables.sql** - Chat threads and messages tables
-7. **007_create_trust_points_history_table.sql** - Trust points audit trail
+**Contents:**
+- 9 sample users with varying trust points (22-95 range)
+- 6 NGOs with different verification statuses (verified, pending, rejected)
+- 6 venues with different safety ratings (green, yellow, red)
+- 12 events across Impact and Grow tracks (including past events)
+- 19 RSVPs with various statuses (confirmed, cancelled, attended, no_show)
+- 5 chat threads with 22 messages
+- 11 trust points history records
 
-## How to Apply Migrations
+**Requirements Validated:** 15.1, 15.2, 15.3, 15.4, 15.5, 15.6
 
-### Option 1: Using Supabase Dashboard
+### `reset_dev_database.sql`
+Truncates all application tables and resets the database to a clean state.
 
-1. Log in to your Supabase project dashboard
+**Requirements Validated:** 15.7
+
+**⚠️ WARNING:** This script is for DEVELOPMENT ONLY. Do not run in production!
+
+## Usage
+
+### Using Supabase SQL Editor (Recommended)
+
+1. Open your Supabase project dashboard
 2. Navigate to the SQL Editor
-3. Copy and paste each migration file content in order
-4. Execute each migration
+3. Create a new query
+4. Copy and paste the contents of the desired script
+5. Click "Run" to execute
 
-### Option 2: Using Supabase CLI
-
-```bash
-# Install Supabase CLI if not already installed
-npm install -g supabase
-
-# Link to your Supabase project
-supabase link --project-ref your-project-ref
-
-# Apply migrations
-supabase db push
-```
-
-### Option 3: Using the All-in-One Script
-
-Execute the `000_run_all_migrations.sql` file which runs all migrations in the correct order:
+### Using psql Command Line
 
 ```bash
-psql -h your-db-host -U postgres -d postgres -f 000_run_all_migrations.sql
+# Seed the database with sample data
+psql -h <your-supabase-host> -U postgres -d postgres -f seed_dev_data.sql
+
+# Reset the database (removes all data)
+psql -h <your-supabase-host> -U postgres -d postgres -f reset_dev_database.sql
 ```
 
-## Migration Dependencies
+### Complete Reset and Re-seed Workflow
 
-The migrations have the following dependencies:
+To completely reset your development database and populate it with fresh sample data:
 
-- **001** (users) - Depends on `auth.users` table (created by Supabase Auth)
-- **002** (ngos) - No dependencies
-- **003** (venues) - No dependencies
-- **004** (events) - Depends on **003** (venues)
-- **005** (rsvps) - Depends on **001** (users) and **004** (events)
-- **006** (chat_tables) - Depends on **001** (users) and **002** (ngos)
-- **007** (trust_points_history) - Depends on **001** (users) and **004** (events)
+1. Run `reset_dev_database.sql` to clear all existing data
+2. Run `seed_dev_data.sql` to populate with sample data
 
-## Rollback
-
-To rollback migrations, drop tables in reverse order:
-
+**In Supabase SQL Editor:**
 ```sql
-DROP TABLE IF EXISTS trust_points_history CASCADE;
-DROP TABLE IF EXISTS chat_messages CASCADE;
-DROP TABLE IF EXISTS chat_threads CASCADE;
-DROP TABLE IF EXISTS rsvps CASCADE;
-DROP TABLE IF EXISTS events CASCADE;
-DROP TABLE IF EXISTS venues CASCADE;
-DROP TABLE IF EXISTS ngos CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
+-- Step 1: Reset (copy contents of reset_dev_database.sql)
+-- Step 2: Seed (copy contents of seed_dev_data.sql)
 ```
 
-## Verification
+## Sample Data Overview
 
-After applying migrations, verify the schema:
+### Users
+- **High Trust (80+):** Alice (95), Bob (88)
+- **Medium Trust (50-79):** Carol (65), David (58), Emma (50)
+- **Low Trust (<50):** Frank (35), Grace (22)
+- **New Users (default 50):** Henry, Iris
 
-```sql
--- List all tables
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public';
+### NGOs
+- **Verified:** Green Earth Foundation, Hope for Children, Community Kitchen Network
+- **Pending:** Tech for Good Initiative, Animal Welfare Society
+- **Rejected:** Unverified Organization
 
--- Check constraints
-SELECT constraint_name, table_name, constraint_type
-FROM information_schema.table_constraints
-WHERE table_schema = 'public';
+### Events
+- **Impact Track:** Tree Planting, Meal Service, Coding Workshop, Beach Cleanup, Animal Shelter
+- **Grow Track:** Photography Walk, Board Game Night, Yoga, Book Club, Cooking Class
+- **Past Events:** Community Garden (completed), Hiking Adventure (completed)
 
--- Check indexes
-SELECT indexname, tablename
-FROM pg_indexes
-WHERE schemaname = 'public';
-```
+### Venues
+- **Green (Safe):** Central Community Center, Riverside Park, City Library
+- **Yellow (Caution):** Old Market Square, Industrial District Hall
+- **Red (High Caution):** Remote Community Outpost
 
 ## Notes
 
-- All tables use UUID primary keys
-- Timestamps use `TIMESTAMPTZ` for timezone support
-- Foreign keys use appropriate `ON DELETE` actions
-- Indexes are created for common query patterns
-- CHECK constraints enforce data integrity
-- UNIQUE constraints prevent duplicate data
+- All UUIDs are hardcoded for consistency across resets
+- Timestamps are relative to NOW() for realistic date ranges
+- Foreign key relationships are properly maintained
+- The scripts use transactions to ensure data consistency
+- Auth users are NOT managed by these scripts (use Supabase Auth for real user accounts)
+
+## Development Workflow
+
+1. **Initial Setup:** Run `seed_dev_data.sql` after creating your database schema
+2. **Testing:** Use the sample data to test features and UI components
+3. **Reset:** Run `reset_dev_database.sql` when you need a clean slate
+4. **Re-seed:** Run `seed_dev_data.sql` again to restore sample data
+
+## Integration with Application
+
+The sample data is designed to work with the CommuniTree application:
+
+- User IDs match the format expected by Supabase Auth
+- NGO Darpan IDs follow the 5-digit validation rule
+- Event times are set relative to NOW() for realistic upcoming/past events
+- Trust points reflect realistic user behavior patterns
+- Chat messages demonstrate typical user-NGO interactions
+
+## Troubleshooting
+
+**Error: "relation does not exist"**
+- Ensure all database tables have been created before running seed script
+- Check that migrations have been applied in the correct order
+
+**Error: "duplicate key value violates unique constraint"**
+- Run `reset_dev_database.sql` first to clear existing data
+- Ensure you're not running the seed script multiple times without resetting
+
+**Error: "foreign key constraint violation"**
+- The scripts handle foreign keys correctly
+- If you see this error, check that you haven't modified the script execution order
+

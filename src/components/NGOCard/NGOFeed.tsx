@@ -6,11 +6,12 @@
  */
 
 import React, { useState, useMemo, useCallback, memo } from 'react';
-import { Filter, Search, SortAsc, SortDesc } from 'lucide-react';
+import { Filter, Search, SortAsc, SortDesc, AlertCircle, RefreshCw } from 'lucide-react';
 import { NGOCardContainer } from './NGOCardContainer';
-import { useNGOs } from '../../hooks';
+import { useNGOs } from '../../hooks/useNGOs.supabase';
 import { NGO, NGOCategory } from '../../types';
 import { clsx } from 'clsx';
+import { Loading } from '../Loading';
 
 export interface NGOFeedProps {
   className?: string;
@@ -35,7 +36,7 @@ const NGOFeedComponent: React.FC<NGOFeedProps> = ({
   className,
   onChatOpen,
 }) => {
-  const { ngos } = useNGOs();
+  const { ngos, loading, error, refetch } = useNGOs();
   
   // Filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -151,6 +152,51 @@ const NGOFeedComponent: React.FC<NGOFeedProps> = ({
   }, []);
 
   const hasActiveFilters = searchTerm || selectedCategory !== 'all' || showVerifiedOnly;
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className={clsx('space-y-6', className)}>
+        <div className="responsive-flex-col sm:items-center sm:justify-between gap-4">
+          <h2 className="text-responsive-xl font-semibold track-text">
+            NGO Opportunities
+          </h2>
+        </div>
+        <Loading />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className={clsx('space-y-6', className)}>
+        <div className="responsive-flex-col sm:items-center sm:justify-between gap-4">
+          <h2 className="text-responsive-xl font-semibold track-text">
+            NGO Opportunities
+          </h2>
+        </div>
+        <div className="text-center py-12">
+          <div className="track-card responsive-card-padding max-w-md mx-auto">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-responsive-base font-medium track-text mb-2">
+              Failed to Load NGOs
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {error.message || 'An error occurred while loading NGO opportunities.'}
+            </p>
+            <button
+              onClick={() => refetch()}
+              className="track-button desktop-button rounded-md desktop-focus-ring inline-flex items-center space-x-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Try Again</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={clsx('space-y-6', className)}>

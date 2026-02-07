@@ -1,118 +1,202 @@
 /**
- * Custom hook for event data management
- * Provides event data access and event-related actions
+ * useEvents Hook
+ * 
+ * Custom React hook for event data management.
+ * Fetches events by track type with loading and error states.
+ * Provides refetch method for manual data refresh.
+ * 
+ * NOTE: This hook adapts the Supabase Event model to the existing component interface.
+ * Some fields are populated with default values or derived from available data.
+ * 
+ * @see Requirements 11.4, 11.5, 11.6, 13.5
  */
 
-import { useCallback, useMemo } from 'react';
-import { useAppState, useAppDispatch } from './useAppState';
-import { useUser } from './useUser';
-import { Event, EventCategory } from '../types';
+import { useState, useEffect, useCallback } from 'react';
+import { eventService } from '../services/event.service';
+import type { Event as SupabaseEvent } from '../types/models';
+import type { Event, EventCategory } from '../types/Event';
+import type { User } from '../types/User';
+import type { Venue } from '../types/Venue';
+import { getErrorMessage } from '../utils/errors';
 
-export const useEvents = () => {
-  const state = useAppState();
-  const dispatch = useAppDispatch();
-  const { user, updateTrustPoints } = useUser();
+/**
+ * Return type for useEvents hook
+ */
+export interface UseEventsReturn {
+  events: Event[];
+  loading: boolean;
+  error: Error | null;
+  currentPage: number;
+  setPage: (page: number) => void;
+  refetch: () => Promise<void>;
+}
 
-  const rsvpToEvent = useCallback((eventId: string) => {
-    if (user) {
-      dispatch({ type: 'RSVP_EVENT', payload: { eventId, userId: user.id } });
-      // Note: Trust points for attending are awarded when attendance is confirmed
-    }
-  }, [dispatch, user]);
+/**
+ * Adapt Supabase Event to component Event interface
+ * Maps database fields to expected component fields
+ */
+function adaptSupabaseEvent(supabaseEvent: SupabaseEvent): Event {
+  // Map eventType to category (default to 'Technology' if not recognized)
+  const categoryMap: Record<string, EventCategory> = {
+    'poetry': 'Poetry',
+    'art': 'Art',
+    'fitness': 'Fitness',
+    'reading': 'Reading',
+    'music': 'Music',
+    'dance': 'Dance',
+    'cooking': 'Cooking',
+    'technology': 'Technology',
+    'photography': 'Photography',
+    'gardening': 'Gardening',
+  };
+  
+  const category: EventCategory = categoryMap[supabaseEvent.eventType.toLowerCase()] || 'Technology';
+  
+  // Create a mock organizer user object
+  const organizer: User = {
+    id: supabaseEvent.organizerId,
+    name: supabaseEvent.organizerType === 'ngo' ? 'NGO Organizer' : 'User Organizer',
+    email: 'organizer@example.com',
+    trustPoints: 75,
+    verificationStatus: 'verified',
+    chatHistory: [],
+    eventHistory: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
-  const cancelRSVP = useCallback((eventId: string) => {
-    if (user) {
-      dispatch({ type: 'CANCEL_RSVP', payload: { eventId, userId: user.id } });
-      // Note: No trust point penalty for canceling RSVP (only for no-shows)
-    }
-  }, [dispatch, user]);
+  // Calculate duration in minutes (default to 120 if not calculable)
+  const duration = supabaseEvent.endTime && supabaseEvent.startTime
+    ? Math.round((supabaseEvent.endTime.getTime() - supabaseEvent.startTime.getTime()) / (1000 * 60))
+    : 120;
 
-  const markAttendance = useCallback((eventId: string, attended: boolean) => {
-    if (user) {
-      if (attended) {
-        updateTrustPoints('ATTEND_EVENT');
-      } else {
-        updateTrustPoints('NO_SHOW');
-      }
-    }
-  }, [user, updateTrustPoints]);
-
-  const updateEvent = useCallback((id: string, updates: Partial<Event>) => {
-    dispatch({ type: 'UPDATE_EVENT', payload: { id, updates } });
-  }, [dispatch]);
-
-  const addEvent = useCallback((event: Event) => {
-    dispatch({ type: 'ADD_EVENT', payload: event });
-  }, [dispatch]);
-
-  // Filter events by category
-  const getEventsByCategory = useCallback((category: EventCategory) => 
-    state.events.filter(event => event.category === category),
-    [state.events]
-  );
-
-  // Upcoming events (sorted by date)
-  const upcomingEvents = useMemo(() => 
-    state.events
-      .filter(event => event.isActive && event.dateTime > new Date())
-      .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime()),
-    [state.events]
-  );
-
-  // Events user has RSVP'd to
-  const userRSVPEvents = useMemo(() => 
-    user ? state.events.filter(event => event.rsvpList.includes(user.id)) : [],
-    [state.events, user]
-  );
-
-  // Events organized by user
-  const userOrganizedEvents = useMemo(() => 
-    user ? state.events.filter(event => event.organizer.id === user.id) : [],
-    [state.events, user]
-  );
-
-  // Events with available spots
-  const eventsWithSpots = useMemo(() => 
-    state.events.filter(event => event.rsvpList.length < event.maxAttendees),
-    [state.events]
-  );
-
-  // Check if user has RSVP'd to an event
-  const hasUserRSVPd = useCallback((eventId: string) => {
-    if (!user) return false;
-    const event = state.events.find(e => e.id === eventId);
-    return event ? event.rsvpList.includes(user.id) : false;
-  }, [state.events, user]);
-
-  // Get event by ID
-  const findEventById = useCallback((id: string) => 
-    state.events.find(event => event.id === id),
-    [state.events]
-  );
-
-  // Get events by venue safety rating
-  const getEventsBySafetyRating = useCallback((rating: 'green' | 'yellow' | 'red') => 
-    state.events.filter(event => event.venue.safetyRating === rating),
-    [state.events]
-  );
+  // Ensure venue exists and adapt to app Venue type
+  const supabaseVenue = supabaseEvent.venue;
+  const venue: Venue = supabaseVenue ? {
+    id: supabaseVenue.id,
+    name: supabaseVenue.name,
+    address: supabaseVenue.address,
+    type: 'public' as const, // Default to public
+    safetyRating: supabaseVenue.safetyRating,
+    coordinates: [
+      supabaseVenue.latitude || 0,
+      supabaseVenue.longitude || 0
+    ] as [number, number],
+    description: supabaseVenue.safetyNotes || undefined,
+    amenities: [],
+    accessibilityFeatures: [],
+    createdAt: supabaseVenue.createdAt,
+    updatedAt: supabaseVenue.updatedAt,
+  } : {
+    id: 'default',
+    name: 'TBD',
+    address: 'Address to be determined',
+    type: 'public' as const,
+    safetyRating: 'yellow' as const,
+    coordinates: [0, 0] as [number, number],
+    amenities: [],
+    accessibilityFeatures: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   return {
-    events: state.events,
-    upcomingEvents,
-    userRSVPEvents,
-    userOrganizedEvents,
-    eventsWithSpots,
-    rsvpToEvent,
-    cancelRSVP,
-    markAttendance,
-    updateEvent,
-    addEvent,
-    getEventsByCategory,
-    getEventsBySafetyRating,
-    hasUserRSVPd,
-    findEventById,
-    totalEvents: state.events.length,
-    upcomingCount: upcomingEvents.length,
-    userRSVPCount: userRSVPEvents.length,
+    id: supabaseEvent.id,
+    title: supabaseEvent.title,
+    description: supabaseEvent.description || '',
+    category,
+    venue,
+    organizer,
+    attendees: [], // Will be populated when we fetch RSVPs
+    rsvpList: [], // Will be populated when we fetch RSVPs
+    maxAttendees: supabaseEvent.maxParticipants || 50,
+    dateTime: supabaseEvent.startTime,
+    duration,
+    isActive: supabaseEvent.startTime > new Date(),
+    createdAt: supabaseEvent.createdAt,
+    updatedAt: supabaseEvent.updatedAt,
   };
-};
+}
+
+/**
+ * Custom hook for fetching events by track type with pagination
+ * 
+ * Automatically fetches events when the track or page changes.
+ * Provides loading and error states for UI feedback.
+ * Includes refetch method for manual data refresh.
+ * 
+ * @param track - Track type to fetch events for ('impact' or 'grow')
+ * @param pageSize - Number of events per page (default: 20)
+ * @returns Events data, loading state, error state, pagination controls, and refetch method
+ * 
+ * @example
+ * const { events, loading, error, currentPage, setPage, refetch } = useEvents('impact');
+ * 
+ * if (loading) return <Loading />;
+ * if (error) return <Error message={error.message} />;
+ * 
+ * return (
+ *   <div>
+ *     {events.map(event => <EventCard key={event.id} event={event} />)}
+ *     <Pagination currentPage={currentPage} onPageChange={setPage} />
+ *     <button onClick={refetch}>Refresh</button>
+ *   </div>
+ * );
+ */
+export function useEvents(track: 'impact' | 'grow', pageSize: number = 20): UseEventsReturn {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  /**
+   * Fetch events from the database
+   */
+  const fetchEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const fetchedEvents = await eventService.getEventsByTrack(track, currentPage, pageSize);
+      const adaptedEvents = fetchedEvents.map(adaptSupabaseEvent);
+      setEvents(adaptedEvents);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err as Error);
+      const error = new Error(errorMessage);
+      setError(error);
+      console.error(`Failed to fetch ${track} events:`, err);
+    } finally {
+      setLoading(false);
+    }
+  }, [track, currentPage, pageSize]);
+
+  /**
+   * Change page
+   */
+  const setPage = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  /**
+   * Refetch events manually
+   */
+  const refetch = useCallback(async (): Promise<void> => {
+    await fetchEvents();
+  }, [fetchEvents]);
+
+  /**
+   * Fetch events when track or page changes
+   */
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  return {
+    events,
+    loading,
+    error,
+    currentPage,
+    setPage,
+    refetch,
+  };
+}

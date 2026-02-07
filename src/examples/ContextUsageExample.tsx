@@ -9,10 +9,11 @@ import {
   useUser, 
   useCurrentTrack, 
   useTrustPoints, 
-  useNGOs, 
-  useEvents, 
   useUI 
 } from '../hooks';
+import { useNGOs } from '../hooks/useNGOs.supabase';
+import { useEvents } from '../hooks/useEvents';
+import { useRSVP } from '../hooks/useRSVP';
 
 // Example component showing user information
 const UserInfo: React.FC = () => {
@@ -93,7 +94,19 @@ const TrackSwitcher: React.FC = () => {
 
 // Example component showing NGO data
 const NGOList: React.FC = () => {
-  const { ngos, verifiedNGOs, unverifiedNGOs, verifyNGO } = useNGOs();
+  const { ngos, loading } = useNGOs();
+  
+  const verifiedNGOs = ngos.filter(ngo => ngo.isVerified);
+  const unverifiedNGOs = ngos.filter(ngo => !ngo.isVerified);
+
+  if (loading) {
+    return (
+      <div className="bg-white p-4 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-2">NGO Information</h3>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white p-4 rounded-lg shadow">
@@ -110,14 +123,6 @@ const NGOList: React.FC = () => {
             <p className="text-xs">
               Status: {ngo.isVerified ? '✅ Verified' : '❌ Unverified'}
             </p>
-            {!ngo.isVerified && (
-              <button
-                onClick={() => verifyNGO(ngo.id, '12345')}
-                className="mt-1 bg-green-500 text-white px-2 py-1 rounded text-xs"
-              >
-                Verify with Darpan ID
-              </button>
-            )}
           </div>
         ))}
       </div>
@@ -127,8 +132,20 @@ const NGOList: React.FC = () => {
 
 // Example component showing event data
 const EventList: React.FC = () => {
-  const { events, upcomingEvents, rsvpToEvent, hasUserRSVPd } = useEvents();
+  const { events, loading } = useEvents('impact');
   const { user } = useUser();
+  const { createRSVP, isRSVPd } = useRSVP(user?.id || '');
+  
+  const upcomingEvents = events.filter(event => event.dateTime > new Date());
+
+  if (loading) {
+    return (
+      <div className="bg-white p-4 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-2">Event Information</h3>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white p-4 rounded-lg shadow">
@@ -156,15 +173,15 @@ const EventList: React.FC = () => {
             </p>
             {user && (
               <button
-                onClick={() => rsvpToEvent(event.id)}
-                disabled={hasUserRSVPd(event.id)}
+                onClick={() => createRSVP(event.id)}
+                disabled={isRSVPd(event.id)}
                 className={`mt-1 px-2 py-1 rounded text-xs ${
-                  hasUserRSVPd(event.id)
+                  isRSVPd(event.id)
                     ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                     : 'bg-blue-500 text-white hover:bg-blue-600'
                 }`}
               >
-                {hasUserRSVPd(event.id) ? 'Already RSVP\'d' : 'RSVP'}
+                {isRSVPd(event.id) ? 'Already RSVP\'d' : 'RSVP'}
               </button>
             )}
           </div>

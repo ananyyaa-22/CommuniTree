@@ -6,11 +6,12 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Filter, Search, SortAsc, SortDesc, MapPin, Calendar } from 'lucide-react';
+import { Filter, Search, SortAsc, SortDesc, MapPin, Calendar, AlertCircle, RefreshCw } from 'lucide-react';
 import { EventCard } from '../EventCard';
-import { useEvents } from '../../hooks';
+import { useEvents } from '../../hooks/useEvents';
 import { Event, EventCategory } from '../../types';
 import { clsx } from 'clsx';
+import { Loading } from '../Loading';
 
 export interface SocialFeedProps {
   className?: string;
@@ -37,7 +38,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({
   className,
   onChatOpen,
 }) => {
-  const { events, upcomingEvents } = useEvents();
+  const { events, loading, error, refetch } = useEvents('grow');
   
   // Filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +47,13 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Filter upcoming events
+  const now = new Date();
+  const upcomingEvents = useMemo(() => 
+    events.filter(event => event.dateTime > now),
+    [events, now]
+  );
 
   // Use upcoming events by default, or all events if filter is disabled
   const baseEvents = showUpcomingOnly ? upcomingEvents : events;
@@ -131,6 +139,51 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({
     });
     return counts;
   }, [baseEvents]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className={clsx('space-y-6', className)}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h2 className="text-xl font-semibold track-text">
+            Social Events
+          </h2>
+        </div>
+        <Loading />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className={clsx('space-y-6', className)}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h2 className="text-xl font-semibold track-text">
+            Social Events
+          </h2>
+        </div>
+        <div className="text-center py-12">
+          <div className="track-card p-8 max-w-md mx-auto">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium track-text mb-2">
+              Failed to Load Events
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {error.message || 'An error occurred while loading social events.'}
+            </p>
+            <button
+              onClick={() => refetch()}
+              className="track-button px-4 py-2 rounded-md inline-flex items-center space-x-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Try Again</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={clsx('space-y-6', className)}>

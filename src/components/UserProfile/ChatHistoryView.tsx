@@ -21,62 +21,40 @@ import {
   Filter,
   ChevronRight
 } from 'lucide-react';
-import { ChatThread } from '../../types/ChatThread';
-import { useChat } from '../../hooks/useChat';
+import { ChatThread } from '../../types/models';
 
 interface ChatHistoryViewProps {
   chatHistory: ChatThread[];
   className?: string;
 }
 
-type FilterType = 'all' | 'ngo' | 'event';
+type FilterType = 'all' | 'ngo';
 
 export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({ 
   chatHistory, 
   className = '' 
 }) => {
-  const { getUnreadMessageCount, markMessagesAsRead } = useChat();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
-  const [selectedThread, setSelectedThread] = useState<ChatThread | null>(null);
 
   // Filter and search chat threads
   const filteredThreads = useMemo(() => {
     let filtered = chatHistory;
 
-    // Apply type filter
-    if (filterType !== 'all') {
-      filtered = filtered.filter(thread => thread.context.type === filterType);
-    }
-
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(thread => 
-        thread.context.title.toLowerCase().includes(query) ||
-        thread.context.description?.toLowerCase().includes(query) ||
-        thread.messages.some(msg => msg.content.toLowerCase().includes(query))
+        thread.ngo?.name.toLowerCase().includes(query) ||
+        thread.user?.displayName.toLowerCase().includes(query)
       );
     }
 
     // Sort by last activity (most recent first)
     return filtered.sort((a, b) => 
-      new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-  }, [chatHistory, filterType, searchQuery]);
-
-  const handleThreadClick = (thread: ChatThread) => {
-    setSelectedThread(thread);
-    
-    // Mark messages as read when thread is opened
-    const unreadMessages = thread.messages
-      .filter(msg => !msg.isRead && msg.senderId !== 'current-user-id')
-      .map(msg => msg.id);
-    
-    if (unreadMessages.length > 0) {
-      markMessagesAsRead(thread.id, unreadMessages);
-    }
-  };
+  }, [chatHistory, searchQuery]);
 
   const formatLastActivity = (date: Date) => {
     const now = new Date();
@@ -94,10 +72,9 @@ export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
   };
 
   const getLastMessage = (thread: ChatThread) => {
-    const lastMessage = thread.messages[thread.messages.length - 1];
-    if (!lastMessage) return 'No messages yet';
+    if (!thread.lastMessage) return 'No messages yet';
     
-    const content = lastMessage.content;
+    const content = thread.lastMessage.messageContent;
     return content.length > 50 ? `${content.substring(0, 50)}...` : content;
   };
 
@@ -142,7 +119,7 @@ export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-gray-500" />
           <span className="text-sm text-gray-700">Filter by:</span>
-          {(['all', 'ngo', 'event'] as FilterType[]).map((type) => (
+          {(['all', 'ngo'] as FilterType[]).map((type) => (
             <button
               key={type}
               onClick={() => setFilterType(type)}
@@ -154,7 +131,7 @@ export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
                 }
               `}
             >
-              {type === 'all' ? 'All' : type === 'ngo' ? 'NGOs' : 'Events'}
+              {type === 'all' ? 'All' : 'NGOs'}
             </button>
           ))}
         </div>
@@ -170,13 +147,11 @@ export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
           </div>
         ) : (
           filteredThreads.map((thread) => {
-            const unreadCount = getUnreadMessageCount(thread.id);
-            const Icon = thread.context.type === 'ngo' ? Building2 : Calendar;
+            const Icon = Building2;
             
             return (
               <div
                 key={thread.id}
-                onClick={() => handleThreadClick(thread)}
                 className="
                   p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 
                   cursor-pointer transition-colors
@@ -184,29 +159,17 @@ export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3 flex-1">
-                    <div className={`
-                      w-10 h-10 rounded-lg flex items-center justify-center
-                      ${thread.context.type === 'ngo' 
-                        ? 'bg-emerald-100 text-emerald-600' 
-                        : 'bg-amber-100 text-amber-600'
-                      }
-                    `}>
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600">
                       <Icon className="w-5 h-5" />
                     </div>
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1">
                         <h4 className="text-sm font-medium text-gray-900 truncate">
-                          {thread.context.title}
+                          {thread.ngo?.name || 'Unknown NGO'}
                         </h4>
-                        <span className={`
-                          px-2 py-0.5 text-xs rounded-full
-                          ${thread.context.type === 'ngo'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-amber-100 text-amber-700'
-                          }
-                        `}>
-                          {thread.context.type === 'ngo' ? 'NGO' : 'Event'}
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-700">
+                          NGO
                         </span>
                       </div>
                       
@@ -217,28 +180,13 @@ export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
                       <div className="flex items-center space-x-4 text-xs text-gray-500">
                         <div className="flex items-center space-x-1">
                           <Clock className="w-3 h-3" />
-                          <span>{formatLastActivity(new Date(thread.lastActivity))}</span>
+                          <span>{formatLastActivity(new Date(thread.updatedAt))}</span>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <MessageCircle className="w-3 h-3" />
-                          <span>{thread.messages.length} messages</span>
-                        </div>
-                        {thread.participants.length > 1 && (
-                          <div className="flex items-center space-x-1">
-                            <Users className="w-3 h-3" />
-                            <span>{thread.participants.length} participants</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    {unreadCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[1.25rem] h-5 flex items-center justify-center">
-                        {unreadCount}
-                      </span>
-                    )}
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   </div>
                 </div>
@@ -249,7 +197,7 @@ export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
       </div>
 
       {/* Quick Stats */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex items-center space-x-2">
             <MessageCircle className="w-5 h-5 text-blue-600" />
@@ -264,22 +212,8 @@ export const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
           <div className="flex items-center space-x-2">
             <Building2 className="w-5 h-5 text-emerald-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {chatHistory.filter(t => t.context.type === 'ngo').length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{chatHistory.length}</p>
               <p className="text-sm text-gray-600">NGO Conversations</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <Calendar className="w-5 h-5 text-amber-600" />
-            <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {chatHistory.filter(t => t.context.type === 'event').length}
-              </p>
-              <p className="text-sm text-gray-600">Event Conversations</p>
             </div>
           </div>
         </div>

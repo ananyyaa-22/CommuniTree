@@ -1,242 +1,213 @@
 /**
- * Custom hook for chat functionality
- * Provides chat state access and chat-related actions with persistence
+ * useChat Hook
+ * 
+ * Custom React hook for chat management.
+ * Manages chat threads and messages with real-time subscriptions.
+ * Automatically subscribes to message updates for the active thread.
+ * Cleans up subscriptions on unmount.
+ * 
+ * @see Requirements 5.3, 5.4, 11.4, 11.5, 11.6, 13.5
  */
 
-import { useCallback, useEffect } from 'react';
-import { useAppState, useAppDispatch } from './useAppState';
-import { ChatThread, Message, ChatContext } from '../types/ChatThread';
-import { NGO } from '../types/NGO';
-import { Event } from '../types/Event';
-import { 
-  saveChatThreads, 
-  loadChatThreads, 
-  addMessageToThread as persistAddMessage,
-  markMessagesAsRead as persistMarkRead,
-  getUnreadMessageCount as persistGetUnreadCount,
-  cleanupOldMessages
-} from '../utils/chatPersistence';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { chatService } from '../services/chat.service';
+import type { ChatThread, ChatMessage } from '../types/models';
+import { getErrorMessage } from '../utils/errors';
 
-export const useChat = () => {
-  const state = useAppState();
-  const dispatch = useAppDispatch();
+/**
+ * Return type for useChat hook
+ */
+export interface UseChatReturn {
+  threads: ChatThread[];
+  messages: ChatMessage[];
+  loading: boolean;
+  error: Error | null;
+  sendMessage: (content: string) => Promise<void>;
+  selectThread: (threadId: string) => void;
+}
 
-  // Load chat threads from localStorage on mount
-  useEffect(() => {
-    const savedThreads = loadChatThreads();
-    if (savedThreads.length > 0) {
-      dispatch({ type: 'SET_CHAT_THREADS', payload: savedThreads });
+/**
+ * Custom hook for chat management
+ * 
+ * Manages chat threads and messages for a user.
+ * Sets up real-time subscription for the active thread.
+ * Automatically cleans up subscriptions when thread changes or component unmounts.
+ * 
+ * @param userId - User ID to manage chats for
+ * @param activeThreadId - Optional thread ID to load messages for and subscribe to
+ * @returns Chat data, loading state, error state, and chat management methods
+ * 
+ * @example
+ * const { threads, messages, loading, sendMessage, selectThread } = useChat(user.id, activeThreadId);
+ * 
+ * // Select a thread
+ * selectThread(threadId);
+ * 
+ * // Send a message
+ * await sendMessage('Hello!');
+ */
+export function useChat(userId: string, activeThreadId?: string): UseChatReturn {
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | undefined>(activeThreadId);
+  
+  // Use ref to store unsubscribe function
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  /**
+   * Fetch chat threads for the user
+   */
+  const fetchThreads = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
     }
-  }, [dispatch]);
 
-  // Save chat threads to localStorage whenever they change
-  useEffect(() => {
-    if (state.chatThreads.length > 0) {
-      saveChatThreads(state.chatThreads);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const fetchedThreads = await chatService.getChatThreads(userId);
+      setThreads(fetchedThreads);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err as Error);
+      const error = new Error(errorMessage);
+      setError(error);
+      console.error('Failed to fetch chat threads:', err);
+    } finally {
+      setLoading(false);
     }
-  }, [state.chatThreads]);
+  }, [userId]);
 
-  // Cleanup old messages periodically
-  useEffect(() => {
-    const cleanup = () => {
-      if (state.chatThreads.length > 0) {
-        const cleanedThreads = cleanupOldMessages(state.chatThreads);
-        if (cleanedThreads.length !== state.chatThreads.length) {
-          dispatch({ type: 'SET_CHAT_THREADS', payload: cleanedThreads });
-        }
-      }
-    };
-
-    // Run cleanup on mount and then every 24 hours
-    cleanup();
-    const interval = setInterval(cleanup, 24 * 60 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [state.chatThreads, dispatch]);
-
-  const createChatContext = useCallback((
-    type: 'ngo' | 'event',
-    reference: NGO | Event
-  ): ChatContext => {
-    return {
-      type,
-      reference,
-      title: type === 'ngo' 
-        ? (reference as NGO).name 
-        : (reference as Event).title,
-      description: type === 'ngo' 
-        ? (reference as NGO).projectTitle 
-        : (reference as Event).description,
-    };
+  /**
+   * Fetch messages for a specific thread
+   */
+  const fetchMessages = useCallback(async (threadId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const fetchedMessages = await chatService.getMessages(threadId);
+      setMessages(fetchedMessages);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err as Error);
+      const error = new Error(errorMessage);
+      setError(error);
+      console.error('Failed to fetch messages:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const findOrCreateThread = useCallback((context: ChatContext): ChatThread => {
-    if (!state.user) {
-      throw new Error('User must be logged in to create chat thread');
+  /**
+   * Send a message in the active thread
+   */
+  const sendMessage = useCallback(async (content: string): Promise<void> => {
+    if (!selectedThreadId) {
+      throw new Error('No thread selected');
     }
 
-    const existingThread = state.chatThreads.find(thread => 
-      thread.context.type === context.type && 
-      thread.context.reference.id === context.reference.id
-    );
-
-    if (existingThread) {
-      return existingThread;
+    if (!userId) {
+      throw new Error('User must be authenticated to send messages');
     }
 
-    // Create new thread
-    const newThread: ChatThread = {
-      id: `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      participants: [state.user],
-      context,
-      messages: [],
-      lastActivity: new Date(),
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    try {
+      setError(null);
+      
+      const newMessage = await chatService.sendMessage(
+        selectedThreadId,
+        userId,
+        'user',
+        content
+      );
+      
+      // Add message to local state (real-time subscription will also add it, but this is faster)
+      setMessages(prev => [...prev, newMessage]);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err as Error);
+      const error = new Error(errorMessage);
+      setError(error);
+      console.error('Failed to send message:', err);
+      throw error;
+    }
+  }, [selectedThreadId, userId]);
 
-    dispatch({ type: 'ADD_CHAT_THREAD', payload: newThread });
-    return newThread;
-  }, [state.user, state.chatThreads, dispatch]);
+  /**
+   * Select a thread to view and subscribe to
+   */
+  const selectThread = useCallback((threadId: string) => {
+    setSelectedThreadId(threadId);
+  }, []);
 
-  const sendMessage = useCallback((
-    threadId: string,
-    content: string,
-    type: 'text' | 'system' = 'text'
-  ) => {
-    if (!state.user || !content.trim()) return;
+  /**
+   * Set up real-time subscription for active thread
+   * Cleans up previous subscription when thread changes
+   */
+  useEffect(() => {
+    // Clean up previous subscription
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
 
-    const message: Message = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      senderId: state.user.id,
-      content: content.trim(),
-      timestamp: new Date(),
-      type,
-      isRead: false,
-    };
+    // If no thread is selected, clear messages
+    if (!selectedThreadId) {
+      setMessages([]);
+      return;
+    }
 
-    dispatch({
-      type: 'SEND_MESSAGE',
-      payload: {
-        threadId,
-        message,
-      },
-    });
+    // Fetch messages for the selected thread
+    fetchMessages(selectedThreadId);
 
-    // Simulate receiving a response for demo purposes
-    if (type === 'text') {
-      setTimeout(() => {
-        const responseMessage: Message = {
-          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          senderId: 'system',
-          content: getAutoResponse(content),
-          timestamp: new Date(),
-          type: 'text',
-          isRead: false,
-        };
-
-        dispatch({
-          type: 'SEND_MESSAGE',
-          payload: {
-            threadId,
-            message: responseMessage,
-          },
+    // Set up real-time subscription
+    const unsubscribe = chatService.subscribeToMessages(
+      selectedThreadId,
+      (newMessage) => {
+        // Add new message to state if it's not already there
+        setMessages(prev => {
+          const exists = prev.some(msg => msg.id === newMessage.id);
+          if (exists) return prev;
+          return [...prev, newMessage];
         });
-      }, 1000 + Math.random() * 2000); // Random delay between 1-3 seconds
-    }
-  }, [state.user, dispatch]);
-
-  const markMessagesAsRead = useCallback((threadId: string, messageIds: string[]) => {
-    dispatch({
-      type: 'MARK_MESSAGES_READ',
-      payload: {
-        threadId,
-        messageIds,
-      },
-    });
-  }, [dispatch]);
-
-  const getThreadById = useCallback((threadId: string): ChatThread | undefined => {
-    return state.chatThreads.find(thread => thread.id === threadId);
-  }, [state.chatThreads]);
-
-  const getThreadsByContext = useCallback((
-    type: 'ngo' | 'event',
-    referenceId: string
-  ): ChatThread[] => {
-    return state.chatThreads.filter(thread => 
-      thread.context.type === type && 
-      thread.context.reference.id === referenceId
+      }
     );
-  }, [state.chatThreads]);
 
-  const getUserChatHistory = useCallback((): ChatThread[] => {
-    if (!state.user) return [];
-    
-    return state.chatThreads
-      .filter(thread => 
-        thread.participants.some(participant => participant.id === state.user?.id)
-      )
-      .sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime());
-  }, [state.user, state.chatThreads]);
+    // Store unsubscribe function
+    unsubscribeRef.current = unsubscribe;
 
-  const getUnreadMessageCount = useCallback((threadId?: string): number => {
-    if (!state.user) return 0;
+    // Cleanup on unmount or when thread changes
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+    };
+  }, [selectedThreadId, fetchMessages]);
 
-    if (threadId) {
-      const thread = getThreadById(threadId);
-      return thread?.messages.filter(msg => 
-        !msg.isRead && msg.senderId !== state.user?.id
-      ).length || 0;
+  /**
+   * Fetch threads when userId changes
+   */
+  useEffect(() => {
+    fetchThreads();
+  }, [fetchThreads]);
+
+  /**
+   * Update selected thread when activeThreadId prop changes
+   */
+  useEffect(() => {
+    if (activeThreadId !== undefined) {
+      setSelectedThreadId(activeThreadId);
     }
-
-    // Return total unread count across all threads
-    return persistGetUnreadCount(state.chatThreads, state.user.id);
-  }, [state.user, state.chatThreads, getThreadById]);
-
-  const hasUnreadMessages = useCallback((threadId?: string): boolean => {
-    return getUnreadMessageCount(threadId) > 0;
-  }, [getUnreadMessageCount]);
+  }, [activeThreadId]);
 
   return {
-    chatThreads: state.chatThreads,
-    createChatContext,
-    findOrCreateThread,
+    threads,
+    messages,
+    loading,
+    error,
     sendMessage,
-    markMessagesAsRead,
-    getThreadById,
-    getThreadsByContext,
-    getUserChatHistory,
-    getUnreadMessageCount,
-    hasUnreadMessages,
-    totalUnreadCount: getUnreadMessageCount(),
-    userChatHistory: getUserChatHistory(),
+    selectThread,
   };
-};
-
-// Helper function to generate auto-responses for demo purposes
-const getAutoResponse = (userMessage: string): string => {
-  const message = userMessage.toLowerCase();
-  
-  if (message.includes('volunteer') || message.includes('help')) {
-    return "Thank you for your interest in volunteering! We'd love to have you join our team. What specific activities are you most interested in?";
-  }
-  
-  if (message.includes('time') || message.includes('when') || message.includes('schedule')) {
-    return "Our activities are typically scheduled on weekends. We can work with your availability to find the best times for you to contribute.";
-  }
-  
-  if (message.includes('location') || message.includes('where')) {
-    return "We operate in various locations around the city. Once you join, we'll share the specific locations for upcoming activities.";
-  }
-  
-  if (message.includes('event') || message.includes('attend')) {
-    return "Great! We're excited to have you at the event. I'll send you more details about what to expect and what to bring.";
-  }
-  
-  if (message.includes('question') || message.includes('?')) {
-    return "I'm here to help answer any questions you have. Feel free to ask about anything related to our activities or how you can get involved.";
-  }
-  
-  return "Thanks for reaching out! Someone from our team will get back to you soon with more information.";
-};
+}

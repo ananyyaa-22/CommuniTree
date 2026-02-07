@@ -10,6 +10,10 @@ export { useNavigation } from './useNavigation';
 export { useTheme } from './useTheme';
 export { useChat } from './useChat';
 
+// Supabase data access hooks
+export { useAuth } from './useAuth';
+export { useRSVP } from './useRSVP';
+
 // Persistence hooks
 export { 
   usePersistence, 

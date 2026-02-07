@@ -141,7 +141,7 @@ export function venueToDbVenue(venue: UpdateVenueInput): DbVenueUpdate {
  * Convert database event to application event
  * Note: venue and rsvpCount are optional and handled separately
  */
-export function dbEventToEvent(dbEvent: DbEvent & { venue?: DbVenue; rsvp_count?: number }): Event {
+export function dbEventToEvent(dbEvent: DbEvent & { venue?: DbVenue | null; rsvp_count?: number }): Event {
   const event: Event = {
     id: dbEvent.id,
     title: dbEvent.title,
