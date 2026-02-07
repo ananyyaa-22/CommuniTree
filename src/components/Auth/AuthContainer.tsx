@@ -15,7 +15,7 @@ interface AuthContainerProps {
   initialMode?: 'login' | 'register' | 'reset';
 }
 
-type AuthStep = 'userType' | 'login' | 'register';
+type AuthStep = 'userType' | 'login' | 'register' | 'reset';
 
 export const AuthContainer: React.FC<AuthContainerProps> = ({
   onAuthComplete,
