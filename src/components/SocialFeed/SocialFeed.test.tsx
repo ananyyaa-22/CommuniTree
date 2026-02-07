@@ -141,13 +141,10 @@ describe('SocialFeed Component', () => {
     });
   });
 
-  test('view mode toggle works', () => {
+  test('renders events in single column layout', () => {
     renderSocialFeed();
     
-    const listViewButton = screen.getByLabelText('List view');
-    fireEvent.click(listViewButton);
-    
-    // The component should still render events in list view
+    // The component should render events in single column layout
     expect(screen.getByText('Poetry Under the Stars')).toBeInTheDocument();
   });
 

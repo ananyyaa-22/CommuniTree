@@ -101,19 +101,13 @@ describe('NGOFeed Component', () => {
     expect(screen.getByText('Animal Rescue Center')).toBeInTheDocument();
   });
 
-  test('switches between grid and list view modes', () => {
+  test('renders NGOs in single column layout', () => {
     renderWithProvider(<NGOFeed />);
     
-    const listViewButton = screen.getByLabelText('List view');
-    const gridViewButton = screen.getByLabelText('Grid view');
-    
-    // Should start in grid view
-    expect(gridViewButton).toHaveClass('track-button-active');
-    
-    // Switch to list view
-    fireEvent.click(listViewButton);
-    expect(listViewButton).toHaveClass('track-button-active');
-    expect(gridViewButton).not.toHaveClass('track-button-active');
+    // All NGOs should be rendered in single column layout
+    expect(screen.getByText('Green Earth Foundation')).toBeInTheDocument();
+    expect(screen.getByText('Education for All')).toBeInTheDocument();
+    expect(screen.getByText('Animal Rescue Center')).toBeInTheDocument();
   });
 
   test('filters NGOs by search term', async () => {

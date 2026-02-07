@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Grid, List, Filter, Search, SortAsc, SortDesc, MapPin, Calendar } from 'lucide-react';
+import { Filter, Search, SortAsc, SortDesc, MapPin, Calendar } from 'lucide-react';
 import { EventCard } from '../EventCard';
 import { useEvents } from '../../hooks';
 import { Event, EventCategory } from '../../types';
@@ -17,7 +17,6 @@ export interface SocialFeedProps {
   onChatOpen?: (event: Event) => void;
 }
 
-type ViewMode = 'grid' | 'list' | 'map';
 type SortOption = 'date' | 'title' | 'category' | 'attendees' | 'spotsLeft';
 type SortDirection = 'asc' | 'desc';
 
@@ -40,8 +39,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({
 }) => {
   const { events, upcomingEvents } = useEvents();
   
-  // View and filter state
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  // Filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<EventCategory | 'all'>('all');
   const [showUpcomingOnly, setShowUpcomingOnly] = useState(true);
@@ -136,7 +134,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({
 
   return (
     <div className={clsx('space-y-6', className)}>
-      {/* Header with View Toggle and Search */}
+      {/* Header with Search */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-semibold track-text">
@@ -148,46 +146,6 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={clsx(
-                'p-2 rounded-md transition-colors duration-200',
-                viewMode === 'grid'
-                  ? 'track-button-active text-white'
-                  : 'text-gray-600 hover:text-gray-800'
-              )}
-              aria-label="Grid view"
-            >
-              <Grid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={clsx(
-                'p-2 rounded-md transition-colors duration-200',
-                viewMode === 'list'
-                  ? 'track-button-active text-white'
-                  : 'text-gray-600 hover:text-gray-800'
-              )}
-              aria-label="List view"
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={clsx(
-                'p-2 rounded-md transition-colors duration-200',
-                viewMode === 'map'
-                  ? 'track-button-active text-white'
-                  : 'text-gray-600 hover:text-gray-800'
-              )}
-              aria-label="Map view"
-            >
-              <MapPin className="w-4 h-4" />
-            </button>
-          </div>
-
           {/* Filter Toggle */}
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -335,63 +293,19 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({
         ))}
       </div>
 
-      {/* Events Display */}
+      {/* Events Display - Single Column */}
       {filteredAndSortedEvents.length > 0 ? (
-        <>
-          {/* Map View Placeholder */}
-          {viewMode === 'map' && (
-            <div className="track-card p-8 text-center">
-              <MapPin className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium track-text mb-2">
-                Map View Coming Soon
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Interactive map with event locations will be available in a future update.
-              </p>
-              <div className="flex justify-center space-x-2">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className="track-button px-4 py-2 rounded-md"
-                >
-                  Switch to Grid View
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className="border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-md transition-colors"
-                >
-                  Switch to List View
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Grid/List View */}
-          {viewMode !== 'map' && (
-            <div className={clsx(
-              'transition-all duration-300',
-              {
-                'responsive-grid-1 desktop-grid-dense gap-4 sm:gap-6': viewMode === 'grid',
-                'space-y-4': viewMode === 'list',
-              }
-            )}>
-              {filteredAndSortedEvents.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  viewMode={viewMode}
-                  onChat={onChatOpen}
-                  className={clsx(
-                    'transition-all duration-200',
-                    {
-                      'desktop-hover-lift': viewMode === 'grid',
-                      'desktop-hover-glow': viewMode === 'list',
-                    }
-                  )}
-                />
-              ))}
-            </div>
-          )}
-        </>
+        <div className="space-y-4">
+          {filteredAndSortedEvents.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              viewMode="list"
+              onChat={onChatOpen}
+              className="transition-all duration-200"
+            />
+          ))}
+        </div>
       ) : (
         <div className="text-center py-12">
           <div className="track-card p-8 max-w-md mx-auto">
@@ -417,7 +331,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({
       )}
 
       {/* Event Statistics */}
-      {filteredAndSortedEvents.length > 0 && viewMode !== 'map' && (
+      {filteredAndSortedEvents.length > 0 && (
         <div className="track-card p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>

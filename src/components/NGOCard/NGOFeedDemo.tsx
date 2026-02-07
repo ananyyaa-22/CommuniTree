@@ -28,8 +28,8 @@ export const NGOFeedDemo: React.FC = () => {
           NGO Feed Demo
         </h2>
         <p className="text-gray-600 max-w-2xl mx-auto">
-          This demo showcases the NGOFeed component with filtering, sorting, and view mode functionality. 
-          Try switching between grid and list views, searching for NGOs, or applying filters.
+          This demo showcases the NGOFeed component with filtering and sorting functionality. 
+          Try searching for NGOs or applying filters to explore the opportunities.
         </p>
       </div>
 
@@ -71,9 +71,9 @@ export const NGOFeedDemo: React.FC = () => {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <h4 className="font-medium text-gray-800">View Modes</h4>
+            <h4 className="font-medium text-gray-800">Single Column Layout</h4>
             <p className="text-sm text-gray-600">
-              Switch between grid and list views for optimal browsing experience
+              Clean, focused single-column layout for optimal readability and engagement
             </p>
           </div>
           <div className="space-y-2">

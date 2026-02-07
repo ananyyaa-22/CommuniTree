@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useMemo, useCallback, memo } from 'react';
-import { Grid, List, Filter, Search, SortAsc, SortDesc } from 'lucide-react';
+import { Filter, Search, SortAsc, SortDesc } from 'lucide-react';
 import { NGOCardContainer } from './NGOCardContainer';
 import { useNGOs } from '../../hooks';
 import { NGO, NGOCategory } from '../../types';
@@ -17,7 +17,6 @@ export interface NGOFeedProps {
   onChatOpen?: (ngo: NGO) => void;
 }
 
-type ViewMode = 'grid' | 'list';
 type SortOption = 'name' | 'category' | 'volunteersNeeded' | 'created';
 type SortDirection = 'asc' | 'desc';
 
@@ -38,8 +37,7 @@ const NGOFeedComponent: React.FC<NGOFeedProps> = ({
 }) => {
   const { ngos } = useNGOs();
   
-  // View and filter state
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  // Filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<NGOCategory | 'all'>('all');
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
@@ -156,7 +154,7 @@ const NGOFeedComponent: React.FC<NGOFeedProps> = ({
 
   return (
     <div className={clsx('space-y-6', className)}>
-      {/* Header with View Toggle and Search */}
+      {/* Header with Search */}
       <div className="responsive-flex-col sm:items-center sm:justify-between gap-4">
         <div className="flex items-center space-x-4">
           <h2 className="text-responsive-xl font-semibold track-text">
@@ -168,34 +166,6 @@ const NGOFeedComponent: React.FC<NGOFeedProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={clsx(
-                'p-2 rounded-md transition-colors duration-200 touch-target',
-                viewMode === 'grid'
-                  ? 'track-button-active text-white'
-                  : 'text-gray-600 hover:text-gray-800'
-              )}
-              aria-label="Grid view"
-            >
-              <Grid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={clsx(
-                'p-2 rounded-md transition-colors duration-200 touch-target',
-                viewMode === 'list'
-                  ? 'track-button-active text-white'
-                  : 'text-gray-600 hover:text-gray-800'
-              )}
-              aria-label="List view"
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-
           {/* Filter Toggle */}
           <button
             onClick={toggleFilters}
@@ -313,28 +283,16 @@ const NGOFeedComponent: React.FC<NGOFeedProps> = ({
         </div>
       )}
 
-      {/* NGO Cards Grid/List */}
+      {/* NGO Cards - Single Column */}
       {filteredAndSortedNGOs.length > 0 ? (
-        <div className={clsx(
-          'transition-all duration-300',
-          {
-            'responsive-grid-1 desktop-grid-dense gap-4 sm:gap-6': viewMode === 'grid',
-            'space-y-4': viewMode === 'list',
-          }
-        )}>
+        <div className="space-y-4">
           {filteredAndSortedNGOs.map((ngo) => (
             <NGOCardContainer
               key={ngo.id}
               ngo={ngo}
-              viewMode={viewMode}
+              viewMode="list"
               onChatOpen={onChatOpen}
-              className={clsx(
-                'transition-all duration-200',
-                {
-                  'desktop-hover-lift': viewMode === 'grid',
-                  'desktop-hover-glow': viewMode === 'list',
-                }
-              )}
+              className="transition-all duration-200"
             />
           ))}
         </div>
