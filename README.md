@@ -1,71 +1,287 @@
-# Getting Started with Create React App
+# CommuniTree
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+CommuniTree is a dual-track community engagement platform that connects users with their local community through two distinct pathways:
 
-## Available Scripts
+- **Impact Track**: Community service focused on NGO partnerships and volunteering opportunities
+- **Grow Track**: Local entertainment focused on hobby-based meetups and social events
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- Dual-track system for volunteering and entertainment activities
+- Trust points gamification system (0-100 scale)
+- NGO verification through Darpan ID validation
+- Color-coded venue safety rating system
+- Universal chat support for coordination
+- RSVP system with trust point implications
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Technology Stack
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **Frontend**: React with TypeScript
+- **Backend**: Supabase (PostgreSQL database, authentication, real-time)
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **State Management**: React Context API + useReducer
+- **Utilities**: date-fns, clsx
+- **Development**: ESLint, Prettier
 
-### `npm test`
+## Getting Started
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Prerequisites
 
-### `npm run build`
+- Node.js (v16 or higher)
+- npm or yarn
+- Supabase account (free tier available at [supabase.com](https://supabase.com))
+- Supabase CLI (optional, for local development)
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Supabase Project Setup
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+#### 1. Create a Supabase Project
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. Go to [supabase.com](https://supabase.com) and sign up or log in
+2. Click "New Project" in your organization
+3. Fill in the project details:
+   - **Name**: CommuniTree (or your preferred name)
+   - **Database Password**: Choose a strong password (save this securely)
+   - **Region**: Select the region closest to your users
+   - **Pricing Plan**: Free tier is sufficient for development
+4. Click "Create new project" and wait for setup to complete (1-2 minutes)
 
-### `npm run eject`
+#### 2. Get Your Project Credentials
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. In your Supabase project dashboard, go to **Settings** → **API**
+2. Copy the following values:
+   - **Project URL** (under "Project URL")
+   - **anon public** key (under "Project API keys")
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+#### 3. Configure Environment Variables
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+2. Open `.env` and add your Supabase credentials:
+   ```env
+   VITE_SUPABASE_URL=your_project_url_here
+   VITE_SUPABASE_ANON_KEY=your_anon_key_here
+   ```
 
-## Learn More
+   **Important**: Never commit the `.env` file to version control. It's already in `.gitignore`.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+#### 4. Run Database Migrations
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+You need to set up the database schema by running the migration scripts in order:
 
-### Code Splitting
+1. In your Supabase project dashboard, go to **SQL Editor**
+2. Run the migration files in this order:
+   - `.kiro/specs/supabase-integration/migrations/001_create_tables.sql`
+   - `.kiro/specs/supabase-integration/migrations/002_create_functions.sql`
+   - `.kiro/specs/supabase-integration/migrations/003_create_rls_policies.sql`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+3. For each file:
+   - Copy the SQL content
+   - Paste into the SQL Editor
+   - Click "Run" to execute
+   - Verify no errors appear
 
-### Analyzing the Bundle Size
+**Alternative: Using Supabase CLI**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+If you have the Supabase CLI installed:
 
-### Making a Progressive Web App
+```bash
+# Login to Supabase
+supabase login
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+# Link to your project
+supabase link --project-ref your-project-ref
 
-### Advanced Configuration
+# Push migrations
+supabase db push
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+#### 5. Seed Development Data (Optional)
 
-### Deployment
+To populate your database with sample data for testing:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+1. Go to **SQL Editor** in your Supabase dashboard
+2. Open and run `.kiro/specs/supabase-integration/migrations/seed_data.sql`
+3. This creates sample users, NGOs, events, venues, and chat data
 
-### `npm run build` fails to minify
+**Note**: Seed data is for development only. Skip this step in production.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-# hackthu
+#### 6. Verify Setup
+
+1. In Supabase dashboard, go to **Table Editor**
+2. You should see all tables: `users`, `ngos`, `events`, `venues`, `rsvps`, `chat_threads`, `chat_messages`, `trust_points_history`
+3. If you ran seed data, tables should contain sample records
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd CommuniTree
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables (see Supabase Project Setup above)
+
+4. Verify Supabase connection:
+   ```bash
+   npm start
+   ```
+   
+   The app should start without errors. Check the browser console for any Supabase connection issues.
+
+### Development
+
+Start the development server:
+```bash
+npm start
+```
+
+### Available Scripts
+
+- `npm start` - Start development server
+- `npm run build` - Create production build
+- `npm test` - Run test suite
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Fix auto-fixable lint issues
+- `npm run format` - Format code with Prettier
+
+### Database Management
+
+#### Resetting Development Database
+
+To reset your development database to a clean state with seed data:
+
+1. Go to Supabase dashboard → **SQL Editor**
+2. Run `.kiro/specs/supabase-integration/migrations/reset_database.sql`
+3. This will truncate all tables and re-run seed data
+
+**Warning**: This deletes all data. Only use in development.
+
+#### Generating TypeScript Types
+
+After making database schema changes, regenerate TypeScript types:
+
+```bash
+# Using Supabase CLI
+supabase gen types typescript --project-id your-project-ref > src/types/database.types.ts
+```
+
+This ensures your TypeScript types match your database schema.
+
+## Project Structure
+
+```
+src/
+├── components/     # React components
+├── hooks/          # Custom React hooks
+├── types/          # TypeScript interfaces
+│   ├── database.types.ts  # Auto-generated from Supabase schema
+│   └── models.ts          # Application data models
+├── utils/          # Utility functions
+│   ├── transformers.ts    # Database ↔ App type conversions
+│   └── errors.ts          # Custom error classes
+├── services/       # Data access layer
+│   ├── auth.service.ts    # Authentication operations
+│   ├── user.service.ts    # User CRUD operations
+│   ├── ngo.service.ts     # NGO operations
+│   ├── event.service.ts   # Event operations
+│   ├── rsvp.service.ts    # RSVP operations
+│   ├── chat.service.ts    # Chat operations
+│   └── venue.service.ts   # Venue operations
+├── lib/            # Third-party integrations
+│   └── supabase.ts        # Supabase client configuration
+├── context/        # React Context providers
+├── App.tsx         # Root component
+└── index.tsx       # Application entry point
+
+.kiro/specs/supabase-integration/
+├── requirements.md         # Feature requirements
+├── design.md              # Technical design
+├── tasks.md               # Implementation tasks
+└── migrations/            # Database migration scripts
+    ├── 001_create_tables.sql
+    ├── 002_create_functions.sql
+    ├── 003_create_rls_policies.sql
+    ├── seed_data.sql
+    └── reset_database.sql
+```
+
+## Development Guidelines
+
+- Mobile-first responsive design
+- TypeScript strict mode enabled
+- Component-based architecture
+- Utility-first CSS with Tailwind
+- Custom color schemes for Impact (emerald) and Grow (amber) tracks
+
+### Authentication Flow
+
+The app uses Supabase Auth with email/password:
+
+1. Users sign up with email, password, and display name
+2. Supabase creates auth record and triggers user profile creation
+3. Session persists across page refreshes
+4. Protected routes redirect unauthenticated users to login
+
+### Data Access Patterns
+
+- **Services Layer**: All database operations go through service functions
+- **Type Safety**: Database types auto-generated, transformed to app types
+- **Error Handling**: Custom error classes for auth, database, and validation errors
+- **Real-time**: Chat uses Supabase real-time subscriptions
+- **Security**: Row Level Security (RLS) policies enforce data access rules
+
+### Testing
+
+Run the test suite:
+
+```bash
+npm test
+```
+
+Test categories:
+- **Unit tests**: Individual functions and components
+- **Property tests**: Universal correctness properties
+- **Integration tests**: End-to-end flows with database
+
+## Troubleshooting
+
+### Common Issues
+
+**"Missing Supabase environment variables" error**
+- Ensure `.env` file exists with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+- Restart the development server after adding environment variables
+
+**"Permission denied" errors in app**
+- Check that RLS policies are correctly applied (run `003_create_rls_policies.sql`)
+- Verify you're authenticated (check browser console for auth state)
+
+**Database connection fails**
+- Verify Supabase project is active (not paused)
+- Check Project URL and API key are correct in `.env`
+- Ensure no typos in environment variable names
+
+**Types don't match database schema**
+- Regenerate types: `supabase gen types typescript --project-id your-project-ref > src/types/database.types.ts`
+- Restart TypeScript server in your IDE
+
+**Real-time subscriptions not working**
+- Check that Realtime is enabled in Supabase dashboard → **Database** → **Replication**
+- Verify the table has replication enabled for the specific operation (INSERT, UPDATE, DELETE)
+
+For more help, see:
+- [Supabase Documentation](https://supabase.com/docs)
+- [Project Design Document](.kiro/specs/supabase-integration/design.md)
+- [Implementation Tasks](.kiro/specs/supabase-integration/tasks.md)
+
+## License
+
+This project is private and proprietary
